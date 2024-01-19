@@ -45,4 +45,4 @@ qr.render() // image buffer
 
 # Credits
 
-This is library is customized from original repo [gcoro/react-qrcode-logo](github.com/gcoro/react-qrcode-logo) which support React.
+The idea is fork the original repo [gcoro/react-qrcode-logo](https://github.com/gcoro/react-qrcode-logo) which support React, then convert it into NodeJS, then customized it depend on my use cases.
