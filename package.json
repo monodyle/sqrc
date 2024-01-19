@@ -1,6 +1,6 @@
 {
   "name": "sqrc",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Styled QRCode",
   "license": "MIT",
   "keywords": [
@@ -9,7 +9,15 @@
     "qr",
     "style qr"
   ],
+  "main": "./src/index.ts",
+  "files": ["src"],
   "author": "monodyle <monodylh@gmail.com>",
+  "homepage": "https://github.com/monodyle/sqrc#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monodyle/sqrc.git"
+  },
+  "bugs": "https://github.com/monodyle/sqrc/issues",
   "scripts": {
     "test": "node -r @swc-node/register ./test/index.test.ts"
   },

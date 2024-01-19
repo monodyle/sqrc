@@ -32,7 +32,6 @@ export interface QROptions {
   eyeColor?: EyeColor | [EyeColor, EyeColor, EyeColor]
   qrStyle?: 'squares' | 'dots'
   style?: object
-  id?: string
 }
 
 interface ICoordinates {
