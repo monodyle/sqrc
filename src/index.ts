@@ -1,98 +1,83 @@
-import qrGenerator from 'qrcode-generator'
+import generator from 'qrcode-generator'
 import { createCanvas, Canvas, SKRSContext2D, Image } from '@napi-rs/canvas'
+import {
+  QRColorGradientType,
+  QRCoordinates,
+  QREyeColor,
+  QREyeCornerRadius,
+  QROptions,
+  QROptionsWithDefaultValue
+} from './types'
 
-export type QREyeColor = string | QRInnerOuterEyeColor
-export type QRInnerOuterEyeColor = {
-  inner: string
-  outer: string
-}
-
-export type QREyeCornerRadius =
-  | number
-  | [number, number, number, number]
-  | QREyesInnerOuterRadius
-export type QREyesInnerOuterRadius = {
-  inner: number | [number, number, number, number]
-  outer: number | [number, number, number, number]
-}
-
-export type QRLogoOptions = {
-  url: string
-  width?: number
-  height?: number
-  padding?: number
-  opacity?: number
-  emptyBackground?: boolean
-  style?: 'square' | 'circle'
-}
-
-export type QREyesOptions = {
-  radius?:
-    | QREyeCornerRadius
-    | [QREyeCornerRadius, QREyeCornerRadius, QREyeCornerRadius]
-  color?: QREyeColor | [QREyeColor, QREyeColor, QREyeColor]
-}
-
-export type QROptions = {
-  ecLevel?: ErrorCorrectionLevel
-  size?: number
-  quietZone?: number
-  foreground?: string
-  background?: string
-  logo?: QRLogoOptions
-  eyes?: QREyesOptions
-  moduleStyle?: 'squares' | 'dots'
-}
-
-export type QRCoordinates = {
-  row: number
-  col: number
+const defaultOptions: QROptionsWithDefaultValue = {
+  ecc: 'M',
+  version: 0,
+  size: 150,
+  quietZone: 10,
+  foreground: '#000',
+  background: '#fff',
+  moduleStyle: 'squares'
 }
 
 export class QRCode {
-  private canvas: Canvas
+  public canvas: Canvas
+  private context: SKRSContext2D
   public content: string
-  private contentSize: number
-  private static defaultOptions = {
-    ecLevel: 'M',
-    size: 150,
-    quietZone: 10,
-    foreground: '#000',
-    background: '#fff',
-    moduleStyle: 'squares',
-  }
-  private options: QROptions = { ...(QRCode.defaultOptions as QROptions) }
 
-  constructor (
-    content: string,
-    { size = QRCode.defaultOptions.size, ...options }: QROptions
-  ) {
-    this.options = { ...(QRCode.defaultOptions as QROptions), ...options, size }
+  private size: number
+  private encoded: ReturnType<typeof generator>
+  private positionZones: [QRCoordinates, QRCoordinates, QRCoordinates]
+  private options: QROptions = defaultOptions
+  private logoMetrics: {
+    dWidthLogo: number
+    dHeightLogo: number
+    dxLogo: number
+    dyLogo: number
+    dWidthLogoPadding: number
+    dHeightLogoPadding: number
+    dxLogoPadding: number
+    dyLogoPadding: number
+  }
+
+  constructor (content: string, options: Partial<QROptions> = defaultOptions) {
+    this.options = { ...defaultOptions, ...options }
     this.content = content
-    this.contentSize =
-      size - (options?.quietZone ?? QRCode.defaultOptions.quietZone) * 2
-    this.canvas = createCanvas(size, size)
-  }
+    this.size = this.options.size - this.options.quietZone * 2
+    this.encoded = generator(this.options.version, this.options.ecc)
+    this.encoded.addData(utf16to8(this.content))
+    this.encoded.make()
 
-  private static utf16to8 (str: string): string {
-    let out: string = '',
-      i: number,
-      c: number
-    const len: number = str.length
-    for (i = 0; i < len; i++) {
-      c = str.charCodeAt(i)
-      if (c >= 0x0001 && c <= 0x007f) {
-        out += str.charAt(i)
-      } else if (c > 0x07ff) {
-        out += String.fromCharCode(0xe0 | ((c >> 12) & 0x0f))
-        out += String.fromCharCode(0x80 | ((c >> 6) & 0x3f))
-        out += String.fromCharCode(0x80 | ((c >> 0) & 0x3f))
-      } else {
-        out += String.fromCharCode(0xc0 | ((c >> 6) & 0x1f))
-        out += String.fromCharCode(0x80 | ((c >> 0) & 0x3f))
-      }
+    const length = this.encoded.getModuleCount()
+    this.positionZones = [
+      { row: 0, col: 0 },
+      { row: 0, col: length - 7 },
+      { row: length - 7, col: 0 }
+    ]
+
+    const logo = this.options.logo
+    const dWidthLogo = logo?.width || this.size * 0.2
+    const dHeightLogo = logo?.width || dWidthLogo
+    const dxLogo = (this.size - dWidthLogo) / 2
+    const dyLogo = (this.size - dHeightLogo) / 2
+    const logoPadding = logo?.padding ?? 0
+    const dWidthLogoPadding = dWidthLogo + 2 * logoPadding
+    const dHeightLogoPadding = dHeightLogo + 2 * logoPadding
+    const dxLogoPadding = dxLogo + this.options.quietZone - logoPadding
+    const dyLogoPadding = dyLogo + this.options.quietZone - logoPadding
+
+    this.logoMetrics = {
+      dWidthLogo,
+      dHeightLogo,
+      dxLogo,
+      dyLogo,
+      dWidthLogoPadding,
+      dHeightLogoPadding,
+      dxLogoPadding,
+      dyLogoPadding
     }
-    return out
+
+    this.canvas = createCanvas(this.options.size, this.options.size)
+    this.context = this.canvas.getContext('2d')
   }
 
   /**
@@ -105,9 +90,9 @@ export class QRCode {
     size: number,
     color: string,
     radii: number | number[],
-    fill: boolean,
-    ctx: SKRSContext2D
+    fill: boolean
   ) {
+    const ctx = this.context
     ctx.lineWidth = lineWidth
     ctx.fillStyle = color
     ctx.strokeStyle = color
@@ -164,72 +149,6 @@ export class QRCode {
   }
 
   /**
-   * Draw a single positional pattern eye.
-   */
-  private drawPositioningPattern (
-    ctx: SKRSContext2D,
-    cellSize: number,
-    offset: number,
-    row: number,
-    col: number,
-    color: QREyeColor,
-    radius: QREyeCornerRadius = [0, 0, 0, 0]
-  ) {
-    const lineWidth = Math.ceil(cellSize)
-
-    let radiiOuter: QREyeCornerRadius
-    let radiiInner: QREyeCornerRadius
-    if (typeof radius !== 'number' && !Array.isArray(radius)) {
-      radiiOuter = radius.outer || 0
-      radiiInner = radius.inner || 0
-    } else {
-      radiiOuter = radius as QREyeCornerRadius
-      radiiInner = radiiOuter
-    }
-
-    let colorOuter
-    let colorInner
-    if (typeof color !== 'string') {
-      colorOuter = color?.outer
-      colorInner = color?.inner
-    } else {
-      colorOuter = color
-      colorInner = color
-    }
-
-    let y = row * cellSize + offset
-    let x = col * cellSize + offset
-    let size = cellSize * 7
-
-    // Outer box
-    this.drawRoundedSquare(
-      lineWidth,
-      x,
-      y,
-      size,
-      colorOuter,
-      radiiOuter as number | number[],
-      false,
-      ctx
-    )
-
-    // Inner box
-    size = cellSize * 3
-    y += cellSize * 2
-    x += cellSize * 2
-    this.drawRoundedSquare(
-      lineWidth,
-      x,
-      y,
-      size,
-      colorInner,
-      radiiInner as number | number[],
-      true,
-      ctx
-    )
-  }
-
-  /**
    * Is this dot inside a positional pattern zone.
    */
   private isInPositioninZone (col: number, row: number, zones: QRCoordinates[]) {
@@ -280,130 +199,119 @@ export class QRCode {
     )
   }
 
-  private async update () {
-    const defaultOptions = QRCode.defaultOptions as Required<QROptions>
-    const {
-      ecLevel = defaultOptions.ecLevel,
-      foreground = defaultOptions.foreground,
-      background = defaultOptions.background,
-      logo,
-      moduleStyle,
-      eyes,
-      quietZone = defaultOptions.quietZone
-    } = this.options
-
-    const size = this.contentSize
-
-    const qrCode = qrGenerator(0, ecLevel)
-    qrCode.addData(QRCode.utf16to8(this.content))
-    qrCode.make()
-
-    const canvas = this.canvas
-    const ctx: SKRSContext2D = canvas.getContext('2d')
-
-    const canvasSize = size + 2 * quietZone
-    const length = qrCode.getModuleCount()
-    const cellSize = size / length
-
-    ctx.fillStyle = background
+  private drawBackground () {
+    const ctx = this.context
+    const canvasSize = this.size + 2 * this.options.quietZone
+    ctx.fillStyle = this.options.background
     ctx.fillRect(0, 0, canvasSize, canvasSize)
+  }
 
-    const offset = quietZone
-
-    const positioningZones: QRCoordinates[] = [
-      { row: 0, col: 0 },
-      { row: 0, col: length - 7 },
-      { row: length - 7, col: 0 }
-    ]
-
-    // Logo Position
-    const dWidthLogo = logo?.width || size * 0.2
-    const dHeightLogo = logo?.width || dWidthLogo
-    const dxLogo = (size - dWidthLogo) / 2
-    const dyLogo = (size - dHeightLogo) / 2
-    const dWidthLogoPadding = dWidthLogo + 2 * (logo?.padding ?? 0)
-    const dHeightLogoPadding = dHeightLogo + 2 * (logo?.padding ?? 0)
-    const dxLogoPadding = dxLogo + offset - (logo?.padding ?? 0)
-    const dyLogoPadding = dyLogo + offset - (logo?.padding ?? 0)
-
-    ctx.strokeStyle = foreground
-    ctx.fillStyle = foreground
-    const radius = cellSize / 2
-
-    for (let row = 0; row < length; row++) {
-      for (let col = 0; col < length; col++) {
-        if (this.isInPositioninZone(row, col, positioningZones)) {
-          continue
-        }
-        if (
-          logo?.emptyBackground &&
-          this.isCoordinateInImage(
-            col,
-            row,
-            dWidthLogo,
-            dHeightLogo,
-            dxLogo,
-            dyLogo,
-            cellSize
-          )
-        ) {
-          continue
-        }
-        if (qrCode.isDark(row, col)) {
-          if (moduleStyle === 'dots') {
-            ctx.beginPath()
-            ctx.arc(
-              Math.round(col * cellSize) + radius + offset,
-              Math.round(row * cellSize) + radius + offset,
-              (radius / 100) * 75,
-              0,
-              2 * Math.PI,
-              false
-            )
-            ctx.closePath()
-            ctx.fill()
-          } else {
-            const mX = Math.round(col * cellSize) + offset
-            const mY = Math.round(row * cellSize) + offset
-            const w =
-              Math.ceil((col + 1) * cellSize) - Math.floor(col * cellSize)
-            const h =
-              Math.ceil((row + 1) * cellSize) - Math.floor(row * cellSize)
-            ctx.fillRect(mX, mY, w, h)
-          }
-        }
-      }
-    }
-
-    // Draw positioning patterns
+  private drawPositions () {
     for (let i = 0; i < 3; i++) {
-      const { row, col } = positioningZones[i]
+      const { row, col } = this.positionZones[i]
 
-      let radii = eyes?.radius
-      let color: QREyeColor = foreground
+      let radius = this.options.eyes?.radius ?? [0, 0, 0, 0]
+      let color: QREyeColor =
+        typeof this.options.foreground === 'string'
+          ? this.options.foreground
+          : typeof this.options.eyes?.color === 'string'
+          ? this.options.eyes.color
+          : '#000'
 
-      if (Array.isArray(radii)) {
-        radii = radii[i]
+      if (Array.isArray(radius)) {
+        radius = radius[i]
+      } else if (typeof radius == 'number') {
+        radius = [radius, radius, radius, radius]
       }
-      if (typeof radii == 'number') {
-        radii = [radii, radii, radii, radii]
-      }
 
-      if (!eyes?.color) {
+      if (!this.options.eyes?.color) {
         // if not specified, eye color is the same as foreground,
-        color = foreground
-      } else {
-        if (Array.isArray(eyes.color)) {
-          // if array, we pass the single color
-          color = eyes.color[i]
+        if (typeof this.options.foreground === 'string') {
+          color = this.options.foreground
         } else {
-          color = eyes.color as QREyeColor
+          //
+        }
+      } else {
+        if (Array.isArray(this.options.eyes.color)) {
+          // if array, we pass the single color
+          color = this.options.eyes.color[i]
+        } else {
+          color = this.options.eyes.color
         }
       }
 
-      this.drawPositioningPattern(ctx, cellSize, offset, row, col, color, radii)
-    }
+      const length = this.encoded.getModuleCount()
+      const cellSize = this.size / length
 
+      const lineWidth = Math.ceil(cellSize)
+
+      const offset = this.options.quietZone
+
+      let radiiOuter: QREyeCornerRadius
+      let radiiInner: QREyeCornerRadius
+      if (typeof radius !== 'number' && !Array.isArray(radius)) {
+        radiiOuter = radius.outer || 0
+        radiiInner = radius.inner || 0
+      } else {
+        radiiOuter = radius
+        radiiInner = radiiOuter
+      }
+
+      let colorOuter
+      let colorInner
+      if (typeof color !== 'string') {
+        colorOuter = color.outer
+        colorInner = color.inner
+      } else {
+        colorOuter = color
+        colorInner = color
+      }
+
+      let y = row * cellSize + offset
+      let x = col * cellSize + offset
+      let size = cellSize * 7
+
+      // Outer box
+      this.drawRoundedSquare(
+        lineWidth,
+        x,
+        y,
+        size,
+        colorOuter,
+        radiiOuter,
+        false
+      )
+
+      // Inner box
+      size = cellSize * 3
+      y += cellSize * 2
+      x += cellSize * 2
+      this.drawRoundedSquare(
+        lineWidth,
+        x,
+        y,
+        size,
+        colorInner,
+        radiiInner,
+        true
+      )
+    }
+  }
+
+  private async drawLogo () {
+    const {
+      dxLogoPadding,
+      dyLogoPadding,
+      dWidthLogoPadding,
+      dHeightLogoPadding,
+      dxLogo,
+      dyLogo,
+      dWidthLogo,
+      dHeightLogo
+    } = this.logoMetrics
+    const ctx = this.context
+    const logo = this.options.logo
+    const offset = this.options.quietZone
     if (logo?.url) {
       const image = new Image()
       image.onload = () => {
@@ -412,8 +320,8 @@ export class QRCode {
         // padding
         if (logo.padding || (logo.emptyBackground && logo.padding)) {
           ctx.beginPath()
-          ctx.strokeStyle = background
-          ctx.fillStyle = background
+          ctx.strokeStyle = this.options.background
+          ctx.fillStyle = this.options.background
 
           if (logo.style === 'circle') {
             const dxCenterLogoPadding = dxLogoPadding + dWidthLogoPadding / 2
@@ -440,6 +348,20 @@ export class QRCode {
         }
 
         ctx.globalAlpha = logo.opacity
+        if (logo.style === 'circle') {
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(
+            dxLogo + offset + dWidthLogo / 2,
+            dyLogo + offset + dWidthLogo / 2,
+            dWidthLogo / 2,
+            0,
+            2 * Math.PI,
+            false
+          )
+          ctx.clip()
+          ctx.closePath()
+        }
         ctx.drawImage(
           image,
           dxLogo + offset,
@@ -459,8 +381,178 @@ export class QRCode {
     }
   }
 
+  private createGradient (
+    type: QRColorGradientType,
+    {
+      x,
+      y,
+      size,
+      additionalRotation
+    }: { x: number; y: number; size: number; additionalRotation: number }
+  ): any {
+    let gradient
+    if (type === 'radial') {
+      gradient = this.context.createRadialGradient(
+        x + size / 2,
+        y + size / 2,
+        0,
+        x + size / 2,
+        y + size / 2,
+        size / 2
+      )
+    } else {
+      const rotation = additionalRotation % (2 * Math.PI)
+      const positiveRotation = (rotation + 2 * Math.PI) % (2 * Math.PI)
+      let x0 = x + size / 2
+      let y0 = y + size / 2
+      let x1 = x + size / 2
+      let y1 = y + size / 2
+      if (
+        (positiveRotation >= 0 && positiveRotation <= 0.25 * Math.PI) ||
+        (positiveRotation > 1.75 * Math.PI && positiveRotation <= 2 * Math.PI)
+      ) {
+        x0 = x0 - size / 2
+        y0 = y0 - (size / 2) * Math.tan(rotation)
+        x1 = x1 + size / 2
+        y1 = y1 + (size / 2) * Math.tan(rotation)
+      } else if (
+        positiveRotation > 0.25 * Math.PI &&
+        positiveRotation <= 0.75 * Math.PI
+      ) {
+        y0 = y0 - size / 2
+        x0 = x0 - size / 2 / Math.tan(rotation)
+        y1 = y1 + size / 2
+        x1 = x1 + size / 2 / Math.tan(rotation)
+      } else if (
+        positiveRotation > 0.75 * Math.PI &&
+        positiveRotation <= 1.25 * Math.PI
+      ) {
+        x0 = x0 + size / 2
+        y0 = y0 + (size / 2) * Math.tan(rotation)
+        x1 = x1 - size / 2
+        y1 = y1 - (size / 2) * Math.tan(rotation)
+      } else if (
+        positiveRotation > 1.25 * Math.PI &&
+        positiveRotation <= 1.75 * Math.PI
+      ) {
+        y0 = y0 + size / 2
+        x0 = x0 + size / 2 / Math.tan(rotation)
+        y1 = y1 - size / 2
+        x1 = x1 - size / 2 / Math.tan(rotation)
+      }
+
+      gradient = this.context.createLinearGradient(
+        Math.round(x0),
+        Math.round(y0),
+        Math.round(x1),
+        Math.round(y1)
+      )
+    }
+
+    return gradient
+  }
+
+  private drawModules () {
+    const ctx = this.context
+    const logo = this.options.logo
+    const length = this.encoded.getModuleCount()
+    const cellSize = this.size / length
+    const radius = cellSize / 2
+    const offset = this.options.quietZone
+
+    const xBeginning = Math.floor((this.size - length * cellSize) / 2)
+    const yBeginning = Math.floor((this.size - length * cellSize) / 2)
+
+    for (let row = 0; row < length; row++) {
+      for (let col = 0; col < length; col++) {
+        if (this.isInPositioninZone(row, col, this.positionZones)) {
+          continue
+        }
+        if (
+          logo?.emptyBackground &&
+          this.isCoordinateInImage(
+            col,
+            row,
+            this.logoMetrics.dWidthLogo,
+            this.logoMetrics.dHeightLogo,
+            this.logoMetrics.dxLogo,
+            this.logoMetrics.dyLogo,
+            cellSize
+          )
+        ) {
+          continue
+        }
+        if (this.encoded.isDark(row, col)) {
+          if (this.options.moduleStyle === 'dots') {
+            ctx.arc(
+              col * cellSize + radius + offset,
+              row * cellSize + radius + offset,
+              (radius / 100) * 75,
+              0,
+              2 * Math.PI
+            )
+          } else if (this.options.moduleStyle === 'squares') {
+            const mX = col * cellSize + offset
+            const mY = row * cellSize + offset
+            const w = (col + 1) * cellSize - col * cellSize
+            const h = (row + 1) * cellSize - row * cellSize
+            ctx.rect(mX, mY, w, h)
+          }
+          ctx.closePath()
+        }
+      }
+    }
+
+    if (typeof this.options.foreground === 'string') {
+      ctx.fillStyle = ctx.strokeStyle = this.options.foreground
+    } else if (this.options.foreground) {
+      const gradient = this.createGradient(
+        this.options.foreground.type ?? 'linear',
+        {
+          additionalRotation: 0,
+          x: xBeginning,
+          y: yBeginning,
+          size: length * cellSize
+        }
+      )
+      gradient.addColorStop(0, this.options.foreground.from)
+      gradient.addColorStop(1, this.options.foreground.to)
+      ctx.fillStyle = ctx.strokeStyle = gradient
+    }
+
+    ctx.fill('evenodd')
+  }
+
+  private async draw () {
+    this.drawBackground()
+    this.drawModules()
+    this.drawPositions()
+    await this.drawLogo()
+  }
+
   async render () {
-    await this.update()
+    await this.draw()
     return this.canvas.encode('png')
   }
+}
+
+function utf16to8 (str: string): string {
+  let out: string = '',
+    i: number,
+    c: number
+  const len: number = str.length
+  for (i = 0; i < len; i++) {
+    c = str.charCodeAt(i)
+    if (c >= 0x0001 && c <= 0x007f) {
+      out += str.charAt(i)
+    } else if (c > 0x07ff) {
+      out += String.fromCharCode(0xe0 | ((c >> 12) & 0x0f))
+      out += String.fromCharCode(0x80 | ((c >> 6) & 0x3f))
+      out += String.fromCharCode(0x80 | ((c >> 0) & 0x3f))
+    } else {
+      out += String.fromCharCode(0xc0 | ((c >> 6) & 0x1f))
+      out += String.fromCharCode(0x80 | ((c >> 0) & 0x3f))
+    }
+  }
+  return out
 }

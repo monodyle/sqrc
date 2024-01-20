@@ -49,14 +49,14 @@ The gap between image edge and QR code content
 
 ### `foreground`
 
-- Type: `string` (CSS color value string)
+- Type: `string | QRColorGradient` (CSS color value string)
 - Default: `#000`
 
 Color of the foreground content
 
 ### `background`
 
-- Type: `string` (CSS color value string)
+- Type: `string | QRColorGradient` (CSS color value string)
 - Default: `#fff`
 
 Color of the background image
@@ -149,8 +149,8 @@ Example (output is the image on the right):
 ```ts
 new QRCode('https://github.com/monodyle/sqrc', {
   size: 480,
-  background: '#F2F1EB',
-  foreground: '#88AB8E',
+  background: '#f2f1eb9f',
+  foreground: '#88ab8e',
   eyes: {
     radius: [
       [48, 48, 8, 48],
@@ -158,14 +158,17 @@ new QRCode('https://github.com/monodyle/sqrc', {
         outer: [48, 8, 48, 8],
         inner: [0, 48, 0, 48]
       },
-      { inner: 0, outer: 100 }
+      { inner: 4, outer: 100 }
     ],
     color: [
-      '#638889',
+      {
+        inner: 'blueviolet',
+        outer: 'indigo'
+      },
       '#638889',
       {
-        inner: '#756AB6',
-        outer: '#DBCC95',
+        inner: '#756ab6',
+        outer: '#dbcc95',
       },
     ]
   }
