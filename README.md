@@ -20,29 +20,158 @@ pnpm add sqrc
 ## Usage
 
 ```ts
-const qr = new QRCode({
-  value: 'https://github.com/monodyle/sqrc'
-})
-
+const qr = new QRCode('https://github.com/monodyle/sqrc')
 qr.render() // image buffer
 ```
 
 ## Options
 
-- `value` (`string`): value encoded in the qr
-- `ecLevel` (`L` | `M` | `Q` | `H`): error correction level
-- `size` (`number`): dimension size
-- `bgColor` (`string`): css color value for the background
-- `fgColor` (`string`): css color value for the background
-- `logoImage` (`string`): logo url
-- `logoWidth` (`number`): logo width
-- `logoHeight` (`number`): logo height
-- `logoPadding` (`number`): border around logo
-- `logoPaddingStyle` (`square` | `circle`): shape of the padding area around the logo
-- `qrStyle` (`squares` | `dots`): style of the qr modules
-- `eyeRadius` (`CornerRadii` | `CornerRadii[]`): the corner radius for the qr eyes
-- `eyeColor` (`EyeColor` | `EyeColor[]`): the color for the qr eyes
+### `ecLevel`
+
+- Type: `ErrorCorrectionLevel` (`L` | `M` | `Q` | `H`)
+- Default: `M`
+
+Error correction level
+
+### `size`
+
+- Type: `number`
+- Default: `150`
+
+Size (width and height) of the output render
+
+### `quietZone`
+
+- Type: `number`
+- Default: `10`
+
+The gap between image edge and QR code content
+
+### `foreground`
+
+- Type: `string` (CSS color value string)
+- Default: `#000`
+
+Color of the foreground content
+
+### `background`
+
+- Type: `string` (CSS color value string)
+- Default: `#fff`
+
+Color of the background image
+
+### `moduleStyle`
+
+- Type: `'squares' | 'dots'`
+- Default: `squares`
+
+Style of the QR modules
+
+### `logo.url`
+
+- Type: `string`
+
+URL string of the logo in the center of QR
+
+### `logo.width`
+
+- Type: `number`
+
+Logo width
+
+### `logo.height`
+
+- Type: `number`
+
+Logo height
+
+### `logo.padding`
+
+- Type: `number`
+
+Padding around logo
+
+### `logo.style`
+
+- Type: `'square' | 'circle'`
+
+Style of the QR padding
+
+### `eyes.radius`
+
+- Type: `QREyeCornerRadius | [QREyeCornerRadius, QREyeCornerRadius, QREyeCornerRadius]`
+
+The corner radius for the QR eyes
+
+### `eyes.color`
+
+- Type: `QREyeColor | [QREyeColor, QREyeColor, QREyeColor]`
+
+The color for the qr eyes
+
+## Eyes Type explaination
+
+`QREyesOptions` is an object type that may have two properties: `radius` and `color`. Both properties can either take single values or an array of three values, each corresponding to a different "eye" of the QR code.
+
+```ts
+type QREyesOptions = {
+  radius?:
+    | QREyeCornerRadius
+    | [QREyeCornerRadius, QREyeCornerRadius, QREyeCornerRadius]
+  color?: QREyeColor | [QREyeColor, QREyeColor, QREyeColor]
+}
+
+type QREyeColor = string | QRInnerOuterEyeColor
+type QRInnerOuterEyeColor = {
+  inner: string
+  outer: string
+}
+
+type QREyeCornerRadius =
+  | number
+  | [number, number, number, number]
+  | QREyesInnerOuterRadius
+type QREyesInnerOuterRadius = {
+  inner: number | [number, number, number, number]
+  outer: number | [number, number, number, number]
+}
+```
+
+The `eyes.radius` property can take values of type `QREyeCornerRadius`, which determines the roundness of the 'eyes'. It can be a single number, an array of four numbers (in order: top-left, top-right, bottom-right, bottom-left), or an object with `inner` and `outer` properties, each being a number or an array of four numbers.
+
+Same with the `color` property, it can take values of type `QREyeColor`, which determines the color of the `eyes`. It can be a string specifying a color or an object with `inner` and `outer` properties, each being a string specifying a color.
+
+<img src="test/eyes.png" height="128" align="right" />
+
+Example (output is the image on the right):
+
+```ts
+new QRCode('https://github.com/monodyle/sqrc', {
+  size: 480,
+  background: '#F2F1EB',
+  foreground: '#88AB8E',
+  eyes: {
+    radius: [
+      [48, 48, 8, 48],
+      {
+        outer: [48, 8, 48, 8],
+        inner: [0, 48, 0, 48]
+      },
+      { inner: 0, outer: 100 }
+    ],
+    color: [
+      '#638889',
+      '#638889',
+      {
+        inner: '#756AB6',
+        outer: '#DBCC95',
+      },
+    ]
+  }
+})
+```
 
 # Credits
 
-The idea is fork the original repo [gcoro/react-qrcode-logo](https://github.com/gcoro/react-qrcode-logo) which support React, then convert it into NodeJS, then customized it depend on my use cases.
+- Inspired and based on the ideas of [gcoro/react-qrcode-logo](https://github.com/gcoro/react-qrcode-logo) which support React.

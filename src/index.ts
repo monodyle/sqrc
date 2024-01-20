@@ -1,61 +1,76 @@
 import qrGenerator from 'qrcode-generator'
 import { createCanvas, Canvas, SKRSContext2D, Image } from '@napi-rs/canvas'
 
-export type EyeColor = string | InnerOuterEyeColor
-export type InnerOuterEyeColor = {
+export type QREyeColor = string | QRInnerOuterEyeColor
+export type QRInnerOuterEyeColor = {
   inner: string
   outer: string
 }
 
-export type CornerRadii = number | [number, number, number, number] | InnerOuterRadii
-export type InnerOuterRadii = {
+export type QREyeCornerRadius =
+  | number
+  | [number, number, number, number]
+  | QREyesInnerOuterRadius
+export type QREyesInnerOuterRadius = {
   inner: number | [number, number, number, number]
   outer: number | [number, number, number, number]
 }
 
-export interface QROptions {
-  value?: string
+export type QRLogoOptions = {
+  url: string
+  width?: number
+  height?: number
+  padding?: number
+  opacity?: number
+  emptyBackground?: boolean
+  style?: 'square' | 'circle'
+}
+
+export type QREyesOptions = {
+  radius?:
+    | QREyeCornerRadius
+    | [QREyeCornerRadius, QREyeCornerRadius, QREyeCornerRadius]
+  color?: QREyeColor | [QREyeColor, QREyeColor, QREyeColor]
+}
+
+export type QROptions = {
   ecLevel?: ErrorCorrectionLevel
   size?: number
   quietZone?: number
-  bgColor?: string
-  fgColor?: string
-  logoImage?: string
-  logoWidth?: number
-  logoHeight?: number
-  logoOpacity?: number
-  logoOnLoad?: () => void
-  removeQrCodeBehindLogo?: boolean
-  logoPadding?: number
-  logoPaddingStyle?: 'square' | 'circle'
-  eyeRadius?: CornerRadii | [CornerRadii, CornerRadii, CornerRadii]
-  eyeColor?: EyeColor | [EyeColor, EyeColor, EyeColor]
-  qrStyle?: 'squares' | 'dots'
-  style?: object
+  foreground?: string
+  background?: string
+  logo?: QRLogoOptions
+  eyes?: QREyesOptions
+  moduleStyle?: 'squares' | 'dots'
 }
 
-export interface ICoordinates {
+export type QRCoordinates = {
   row: number
   col: number
 }
 
 export class QRCode {
   private canvas: Canvas
-  private options: QROptions = {
-    value: 'sqrc',
+  public content: string
+  private contentSize: number
+  private static defaultOptions = {
     ecLevel: 'M',
     size: 150,
     quietZone: 10,
-    bgColor: '#FFFFFF',
-    fgColor: '#000000',
-    logoOpacity: 1,
-    qrStyle: 'squares',
-    eyeRadius: [0, 0, 0],
-    logoPaddingStyle: 'square'
+    foreground: '#000',
+    background: '#fff',
+    moduleStyle: 'squares',
   }
+  private options: QROptions = { ...(QRCode.defaultOptions as QROptions) }
 
-  constructor ({ size = 150, ...options }: QROptions) {
-    this.options = { ...options, size }
+  constructor (
+    content: string,
+    { size = QRCode.defaultOptions.size, ...options }: QROptions
+  ) {
+    this.options = { ...(QRCode.defaultOptions as QROptions), ...options, size }
+    this.content = content
+    this.contentSize =
+      size - (options?.quietZone ?? QRCode.defaultOptions.quietZone) * 2
     this.canvas = createCanvas(size, size)
   }
 
@@ -157,26 +172,26 @@ export class QRCode {
     offset: number,
     row: number,
     col: number,
-    color: EyeColor,
-    radii: CornerRadii = [0, 0, 0, 0]
+    color: QREyeColor,
+    radius: QREyeCornerRadius = [0, 0, 0, 0]
   ) {
     const lineWidth = Math.ceil(cellSize)
 
-    let radiiOuter: CornerRadii
-    let radiiInner: CornerRadii
-    if (typeof radii !== 'number' && !Array.isArray(radii)) {
-      radiiOuter = radii.outer || 0
-      radiiInner = radii.inner || 0
+    let radiiOuter: QREyeCornerRadius
+    let radiiInner: QREyeCornerRadius
+    if (typeof radius !== 'number' && !Array.isArray(radius)) {
+      radiiOuter = radius.outer || 0
+      radiiInner = radius.inner || 0
     } else {
-      radiiOuter = radii as CornerRadii
+      radiiOuter = radius as QREyeCornerRadius
       radiiInner = radiiOuter
     }
 
     let colorOuter
     let colorInner
     if (typeof color !== 'string') {
-      colorOuter = color.outer
-      colorInner = color.inner
+      colorOuter = color?.outer
+      colorInner = color?.inner
     } else {
       colorOuter = color
       colorInner = color
@@ -217,7 +232,7 @@ export class QRCode {
   /**
    * Is this dot inside a positional pattern zone.
    */
-  private isInPositioninZone (col: number, row: number, zones: ICoordinates[]) {
+  private isInPositioninZone (col: number, row: number, zones: QRCoordinates[]) {
     return zones.some(
       zone =>
         row >= zone.row &&
@@ -241,58 +256,46 @@ export class QRCode {
     dHeightLogo: number,
     dxLogo: number,
     dyLogo: number,
-    cellSize: number,
-    logoImage: string
+    cellSize: number
   ) {
-    if (logoImage) {
-      const numberOfCellsMargin = 2
-      const firstRowOfLogo = this.transformPixelLengthIntoNumberOfCells(
-        dxLogo,
-        cellSize
-      )
-      const firstColumnOfLogo = this.transformPixelLengthIntoNumberOfCells(
-        dyLogo,
-        cellSize
-      )
-      const logoWidthInCells =
-        this.transformPixelLengthIntoNumberOfCells(dWidthLogo, cellSize) - 1
-      const logoHeightInCells =
-        this.transformPixelLengthIntoNumberOfCells(dHeightLogo, cellSize) - 1
+    const numberOfCellsMargin = 1
+    const firstRowOfLogo = this.transformPixelLengthIntoNumberOfCells(
+      dxLogo,
+      cellSize
+    )
+    const firstColumnOfLogo = this.transformPixelLengthIntoNumberOfCells(
+      dyLogo,
+      cellSize
+    )
+    const logoWidthInCells =
+      this.transformPixelLengthIntoNumberOfCells(dWidthLogo, cellSize) - 1
+    const logoHeightInCells =
+      this.transformPixelLengthIntoNumberOfCells(dHeightLogo, cellSize) - 1
 
-      return (
-        row >= firstRowOfLogo - numberOfCellsMargin &&
-        row <= firstRowOfLogo + logoWidthInCells + numberOfCellsMargin && // check rows
-        col >= firstColumnOfLogo - numberOfCellsMargin &&
-        col <= firstColumnOfLogo + logoHeightInCells + numberOfCellsMargin
-      ) // check cols
-    } else {
-      return false
-    }
+    return (
+      row >= firstRowOfLogo - numberOfCellsMargin &&
+      row <= firstRowOfLogo + logoWidthInCells + numberOfCellsMargin && // check rows
+      col >= firstColumnOfLogo - numberOfCellsMargin &&
+      col <= firstColumnOfLogo + logoHeightInCells + numberOfCellsMargin
+    )
   }
 
   private async update () {
+    const defaultOptions = QRCode.defaultOptions as Required<QROptions>
     const {
-      value = 'sqrc',
-      ecLevel = 'M',
-      bgColor = 'white',
-      fgColor = 'black',
-      logoImage,
-      logoOpacity,
-      logoOnLoad,
-      removeQrCodeBehindLogo,
-      qrStyle,
-      eyeRadius,
-      eyeColor,
-      logoPaddingStyle,
-      size = 150,
-      quietZone = 10,
-      logoWidth = 0,
-      logoHeight = 0,
-      logoPadding = 0
+      ecLevel = defaultOptions.ecLevel,
+      foreground = defaultOptions.foreground,
+      background = defaultOptions.background,
+      logo,
+      moduleStyle,
+      eyes,
+      quietZone = defaultOptions.quietZone
     } = this.options
 
+    const size = this.contentSize
+
     const qrCode = qrGenerator(0, ecLevel)
-    qrCode.addData(QRCode.utf16to8(value))
+    qrCode.addData(QRCode.utf16to8(this.content))
     qrCode.make()
 
     const canvas = this.canvas
@@ -301,32 +304,53 @@ export class QRCode {
     const canvasSize = size + 2 * quietZone
     const length = qrCode.getModuleCount()
     const cellSize = size / length
-    const trueSize = size + 2 * quietZone
-    const scale = size / trueSize
-    canvas.height = canvas.width = canvasSize * scale
-    ctx.scale(scale, scale)
 
-    ctx.fillStyle = bgColor
+    ctx.fillStyle = background
     ctx.fillRect(0, 0, canvasSize, canvasSize)
 
     const offset = quietZone
 
-    const positioningZones: ICoordinates[] = [
+    const positioningZones: QRCoordinates[] = [
       { row: 0, col: 0 },
       { row: 0, col: length - 7 },
       { row: length - 7, col: 0 }
     ]
 
-    ctx.strokeStyle = fgColor
-    if (qrStyle === 'dots') {
-      ctx.fillStyle = fgColor
-      const radius = cellSize / 2
-      for (let row = 0; row < length; row++) {
-        for (let col = 0; col < length; col++) {
-          if (
-            qrCode.isDark(row, col) &&
-            !this.isInPositioninZone(row, col, positioningZones)
-          ) {
+    // Logo Position
+    const dWidthLogo = logo?.width || size * 0.2
+    const dHeightLogo = logo?.width || dWidthLogo
+    const dxLogo = (size - dWidthLogo) / 2
+    const dyLogo = (size - dHeightLogo) / 2
+    const dWidthLogoPadding = dWidthLogo + 2 * (logo?.padding ?? 0)
+    const dHeightLogoPadding = dHeightLogo + 2 * (logo?.padding ?? 0)
+    const dxLogoPadding = dxLogo + offset - (logo?.padding ?? 0)
+    const dyLogoPadding = dyLogo + offset - (logo?.padding ?? 0)
+
+    ctx.strokeStyle = foreground
+    ctx.fillStyle = foreground
+    const radius = cellSize / 2
+
+    for (let row = 0; row < length; row++) {
+      for (let col = 0; col < length; col++) {
+        if (this.isInPositioninZone(row, col, positioningZones)) {
+          continue
+        }
+        if (
+          logo?.emptyBackground &&
+          this.isCoordinateInImage(
+            col,
+            row,
+            dWidthLogo,
+            dHeightLogo,
+            dxLogo,
+            dyLogo,
+            cellSize
+          )
+        ) {
+          continue
+        }
+        if (qrCode.isDark(row, col)) {
+          if (moduleStyle === 'dots') {
             ctx.beginPath()
             ctx.arc(
               Math.round(col * cellSize) + radius + offset,
@@ -338,27 +362,14 @@ export class QRCode {
             )
             ctx.closePath()
             ctx.fill()
-          }
-        }
-      }
-    } else {
-      for (let row = 0; row < length; row++) {
-        for (let col = 0; col < length; col++) {
-          if (
-            qrCode.isDark(row, col) &&
-            !this.isInPositioninZone(row, col, positioningZones)
-          ) {
-            ctx.fillStyle = fgColor
+          } else {
+            const mX = Math.round(col * cellSize) + offset
+            const mY = Math.round(row * cellSize) + offset
             const w =
               Math.ceil((col + 1) * cellSize) - Math.floor(col * cellSize)
             const h =
               Math.ceil((row + 1) * cellSize) - Math.floor(row * cellSize)
-            ctx.fillRect(
-              Math.round(col * cellSize) + offset,
-              Math.round(row * cellSize) + offset,
-              w,
-              h
-            )
+            ctx.fillRect(mX, mY, w, h)
           }
         }
       }
@@ -368,8 +379,8 @@ export class QRCode {
     for (let i = 0; i < 3; i++) {
       const { row, col } = positioningZones[i]
 
-      let radii = eyeRadius
-      let color
+      let radii = eyes?.radius
+      let color: QREyeColor = foreground
 
       if (Array.isArray(radii)) {
         radii = radii[i]
@@ -378,43 +389,33 @@ export class QRCode {
         radii = [radii, radii, radii, radii]
       }
 
-      if (!eyeColor) {
+      if (!eyes?.color) {
         // if not specified, eye color is the same as foreground,
-        color = fgColor
+        color = foreground
       } else {
-        if (Array.isArray(eyeColor)) {
+        if (Array.isArray(eyes.color)) {
           // if array, we pass the single color
-          color = eyeColor[i]
+          color = eyes.color[i]
         } else {
-          color = eyeColor as EyeColor
+          color = eyes.color as QREyeColor
         }
       }
 
       this.drawPositioningPattern(ctx, cellSize, offset, row, col, color, radii)
     }
 
-    if (logoImage) {
+    if (logo?.url) {
       const image = new Image()
       image.onload = () => {
         ctx.save()
 
-        const dWidthLogo = logoWidth || size * 0.2
-        const dHeightLogo = logoHeight || dWidthLogo
-        const dxLogo = (size - dWidthLogo) / 2
-        const dyLogo = (size - dHeightLogo) / 2
-
-        if (removeQrCodeBehindLogo || logoPadding) {
+        // padding
+        if (logo.padding || (logo.emptyBackground && logo.padding)) {
           ctx.beginPath()
+          ctx.strokeStyle = background
+          ctx.fillStyle = background
 
-          ctx.strokeStyle = bgColor
-          ctx.fillStyle = bgColor
-
-          const dWidthLogoPadding = dWidthLogo + 2 * logoPadding
-          const dHeightLogoPadding = dHeightLogo + 2 * logoPadding
-          const dxLogoPadding = dxLogo + offset - logoPadding
-          const dyLogoPadding = dyLogo + offset - logoPadding
-
-          if (logoPaddingStyle === 'circle') {
+          if (logo.style === 'circle') {
             const dxCenterLogoPadding = dxLogoPadding + dWidthLogoPadding / 2
             const dyCenterLogoPadding = dyLogoPadding + dHeightLogoPadding / 2
             ctx.ellipse(
@@ -438,7 +439,7 @@ export class QRCode {
           }
         }
 
-        ctx.globalAlpha = logoOpacity
+        ctx.globalAlpha = logo.opacity
         ctx.drawImage(
           image,
           dxLogo + offset,
@@ -447,11 +448,8 @@ export class QRCode {
           dHeightLogo
         )
         ctx.restore()
-        if (logoOnLoad) {
-          logoOnLoad()
-        }
       }
-      const arrayBuffer = await fetch(logoImage).then(r => r.arrayBuffer())
+      const arrayBuffer = await fetch(logo.url).then(r => r.arrayBuffer())
       const buffer = Buffer.alloc(arrayBuffer.byteLength)
       const view = new Uint8Array(arrayBuffer)
       for (let i = 0; i < buffer.length; ++i) {
