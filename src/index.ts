@@ -1,14 +1,14 @@
 import qrGenerator from 'qrcode-generator'
 import { createCanvas, Canvas, SKRSContext2D, Image } from '@napi-rs/canvas'
 
-type EyeColor = string | InnerOuterEyeColor
-type InnerOuterEyeColor = {
+export type EyeColor = string | InnerOuterEyeColor
+export type InnerOuterEyeColor = {
   inner: string
   outer: string
 }
 
-type CornerRadii = number | [number, number, number, number] | InnerOuterRadii
-type InnerOuterRadii = {
+export type CornerRadii = number | [number, number, number, number] | InnerOuterRadii
+export type InnerOuterRadii = {
   inner: number | [number, number, number, number]
   outer: number | [number, number, number, number]
 }
@@ -34,7 +34,7 @@ export interface QROptions {
   style?: object
 }
 
-interface ICoordinates {
+export interface ICoordinates {
   row: number
   col: number
 }
