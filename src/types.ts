@@ -37,9 +37,7 @@ export type QRColorGradient = {
   type?: QRColorGradientType
   rotation?: number
 }
-export type QRColorType =
-  | string
-  | QRColorGradient
+export type QRColorType = string | QRColorGradient
 
 export type QROptionsWithDefaultValue = {
   ecc: ErrorCorrectionLevel
@@ -48,14 +46,24 @@ export type QROptionsWithDefaultValue = {
   quietZone: number
   foreground: QRColorType
   background: string
-  moduleStyle: 'squares' | 'dots'
+  moduleStyle: 'square' | 'dots' | 'rounded' | 'extraRounded' | 'classy'
 }
 export type QROptions = QROptionsWithDefaultValue & {
   logo?: QRLogoOptions
   eyes?: QREyesOptions
+  moduleScale?: number
 }
 
 export type QRCoordinates = {
   row: number
   col: number
+}
+
+export type DrawModuleOptions = QRCoordinates & {
+  size: number
+  rotation?: number
+}
+
+export type RotateModuleOptions = DrawModuleOptions & {
+  draw: () => void
 }
