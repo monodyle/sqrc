@@ -30,10 +30,10 @@ qr.render() // image buffer
 
 ## Options
 
-### `ecLevel`
+### `ecc`
 
 - Type: `ErrorCorrectionLevel` (`L` | `M` | `Q` | `H`)
-- Default: `M`
+- Default: `H`
 
 Error correction level
 

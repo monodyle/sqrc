@@ -85,12 +85,11 @@ const dots = new QRCode('https://www.starbucks.com/', {
   logo: {
     url: 'https://www.starbucks.vn/media/jlrf0uhs/logo_tcm89-366_w1024_n.png',
     style: 'circle',
-    padding: 2,
     width: 48,
     emptyBackground: true
   },
   eyes: {
-    radius: 48,
+    radius: 64,
     color: '#006341'
   }
 })
@@ -126,22 +125,22 @@ const classy = new QRCode('https://github.com/monodyle', {
   size: 256,
   background: '#fff',
   foreground: {
-    from: '#292950',
+    from: '#3c3466',
     to: '#0d1117',
     type: 'radial'
   },
   logo: {
-    url: 'https://github.githubassets.com/assets/apple-touch-icon-180x180-a80b8e11abe2.png',
+    url: 'https://images2.imgbox.com/8c/94/gQ0BBwsI_o.png',
     style: 'circle',
-    width: 64,
+    width: 56,
     emptyBackground: true
   },
   moduleStyle: 'classy',
   eyes: {
     radius: [
-      [48, 0, 48, 0],
-      [0, 48, 0, 48],
-      [48, 0, 48, 0]
+      [48, 48, 0, 48],
+      [48, 48, 48, 0],
+      [48, 0, 48, 48]
     ]
   }
 })

@@ -12,7 +12,7 @@ import {
 } from './types'
 
 const defaultOptions: QROptionsWithDefaultValue = {
-  ecc: 'M',
+  ecc: 'H',
   version: 0,
   size: 150,
   quietZone: 10,
@@ -497,7 +497,7 @@ export class QRCode {
     }
 
     if (!leftNeighbor && !topNeighbor) {
-      return this._drawBasicCornerExtraRounded({
+      return this._drawBasicCornerRounded({
         row,
         col,
         size,
@@ -506,7 +506,7 @@ export class QRCode {
     }
 
     if (!rightNeighbor && !bottomNeighbor) {
-      return this._drawBasicCornerExtraRounded({ row, col, size, rotation: 90 })
+      return this._drawBasicCornerRounded({ row, col, size, rotation: 90 })
     }
 
     this._drawSquareModule({ row, col, size })
