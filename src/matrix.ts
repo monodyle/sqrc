@@ -1,6 +1,6 @@
 import QRCode from 'qrcode'
 
-type QRCodeErrorCorrectionLevelType = 'L' | 'H' | 'Q' | 'M'
+export type QRCodeErrorCorrectionLevelType = 'L' | 'H' | 'Q' | 'M'
 type QRCodeMatrixValue = 0 | 1
 type QRCodeMatrix = Array<Array<QRCodeMatrixValue>>
 
@@ -11,13 +11,18 @@ type ShapeOptions = {
   gap?: number
   eyePatternGap?: number
 }
+export type TransformOptions = ShapeOptions & { logoSize?: number }
 
 export class Matrix {
   protected value: QRCodeMatrix
 
-  constructor(value: string, ecc: QRCodeErrorCorrectionLevelType) {
+  constructor(
+    value: string,
+    ecc: QRCodeErrorCorrectionLevelType,
+    version?: number,
+  ) {
     const matrix = Array.from(
-      QRCode.create(value, { errorCorrectionLevel: ecc }).modules.data,
+      QRCode.create(value, { errorCorrectionLevel: ecc, version }).modules.data,
     ) as Array<QRCodeMatrixValue>
 
     const size = Math.sqrt(matrix.length)
@@ -36,19 +41,20 @@ export class Matrix {
 
   toPath(
     size: number,
-    options: ShapeOptions = {
+    options: TransformOptions = {
       shape: 'rounded',
       eyePatternShape: 'rounded',
       gap: 0,
       eyePatternGap: 0,
+      logoSize: 0,
     },
-    logoSize = 0,
   ) {
     const {
       shape = 'rounded',
       eyePatternShape = 'rounded',
       gap = 0,
       eyePatternGap = 0,
+      logoSize = 0,
     } = options
     const cellSize = size / this.value.length
     let path = ''
