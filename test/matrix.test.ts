@@ -35,3 +35,25 @@ describe('generateMatrix', () => {
     expect(matrix1).not.toEqual(matrix2)
   })
 })
+
+describe('toPath quiet zone', () => {
+  test('insets every drawn coordinate by a margin around the modules', () => {
+    const size = 200
+    const matrix = new Matrix('example', 'M')
+    const moduleCount = matrix.getValue().length
+    const { path, cellSize } = matrix.toPath(size)
+
+    const coordinates = path.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+    expect(coordinates.length).toBeGreaterThan(0)
+
+    // Margin implied by cellSize vs. the raw module count, not a hardcoded
+    // constant, so this stays correct if the quiet zone size ever changes.
+    const margin = (size - moduleCount * cellSize) / 2
+    expect(margin).toBeGreaterThan(cellSize * 3)
+
+    for (const coordinate of coordinates) {
+      expect(coordinate).toBeGreaterThanOrEqual(margin - 0.01)
+      expect(coordinate).toBeLessThanOrEqual(size - margin + 0.01)
+    }
+  })
+})

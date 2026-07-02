@@ -5,7 +5,7 @@ import {
 } from './matrix'
 
 export type QRCodeOptions = {
-  errorCorrectionLevel: QRCodeErrorCorrectionLevelType
+  errorCorrectionLevel?: QRCodeErrorCorrectionLevelType
   version?: number
 }
 
@@ -16,9 +16,7 @@ export class QRCode {
   constructor(value: string, options?: QRCodeOptions) {
     this.value = value
 
-    const { errorCorrectionLevel, version } = options || {
-      errorCorrectionLevel: 'M',
-    }
+    const { errorCorrectionLevel = 'M', version } = options ?? {}
     this._matrix = new Matrix(value, errorCorrectionLevel, version)
   }
 

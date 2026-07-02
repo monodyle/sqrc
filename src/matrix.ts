@@ -13,6 +13,8 @@ type ShapeOptions = {
 }
 export type TransformOptions = ShapeOptions & { logoSize?: number }
 
+const QUIET_ZONE = 4
+
 export class Matrix {
   protected value: QRCodeMatrix
 
@@ -56,7 +58,7 @@ export class Matrix {
       eyePatternGap = 0,
       logoSize = 0,
     } = options
-    const cellSize = size / this.value.length
+    const cellSize = size / (this.value.length + QUIET_ZONE * 2)
     let path = ''
 
     this.value.forEach((row, i) => {
@@ -82,8 +84,8 @@ export class Matrix {
           const offset = effectiveCellSize / 2
 
           /* Get corners */
-          const x = j * cellSize
-          const y = i * cellSize
+          const x = (j + QUIET_ZONE) * cellSize
+          const y = (i + QUIET_ZONE) * cellSize
           const center = { x: x + cellSize / 2, y: y + cellSize / 2 }
           const corners = {
             q1: { x: x + cellSize - padding, y: y + padding },
