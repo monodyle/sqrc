@@ -6,18 +6,15 @@ describe('generateMatrix', () => {
     const value = 'example'
     const matrix = new Matrix(value, 'M').getValue()
 
-    // Check if the result is a 2D array
     expect(Array.isArray(matrix)).toBe(true)
     expect(Array.isArray(matrix[0])).toBe(true)
 
-    // Check if all elements are either 0 or 1
     for (const row of matrix) {
       for (const cell of row) {
         expect(cell === 0 || cell === 1).toBe(true)
       }
     }
 
-    // Check if the matrix is square
     const size = matrix.length
     for (const row of matrix) {
       expect(row.length).toBe(size)
@@ -31,7 +28,6 @@ describe('generateMatrix', () => {
     const matrix1 = new Matrix(value1, 'M').getValue()
     const matrix2 = new Matrix(value2, 'M').getValue()
 
-    // Check if the matrices are different
     expect(matrix1).not.toEqual(matrix2)
   })
 })
@@ -79,12 +75,23 @@ describe('toPath path model', () => {
     }
   })
 
-  test('each shape produces commands consumable by a canvas-style replayer', () => {
+  test('each body shape produces commands consumable by a canvas-style replayer', () => {
     const matrix = new Matrix('example', 'H')
     const shapes = ['square', 'circle', 'rounded', 'diamond'] as const
 
     for (const shape of shapes) {
-      const { commands } = matrix.toPath(200, { shape, eyePatternShape: shape })
+      const { commands } = matrix.toPath(200, { shape })
+      expect(commands.length).toBeGreaterThan(0)
+      expect(commands.every((c) => c.op !== undefined)).toBe(true)
+    }
+  })
+
+  test('each eye pattern shape produces commands consumable by a canvas-style replayer', () => {
+    const matrix = new Matrix('example', 'H')
+    const eyePatternShapes = ['square', 'rounded'] as const
+
+    for (const eyePatternShape of eyePatternShapes) {
+      const { commands } = matrix.toPath(200, { eyePatternShape })
       expect(commands.length).toBeGreaterThan(0)
       expect(commands.every((c) => c.op !== undefined)).toBe(true)
     }

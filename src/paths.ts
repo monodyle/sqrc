@@ -2,9 +2,16 @@ type QRCodeMatrixValue = 0 | 1
 export type QRCodeMatrix = Array<Array<QRCodeMatrixValue>>
 
 export type BaseShapeOptions = 'square' | 'circle' | 'rounded' | 'diamond'
+
+// circle/diamond modules always leave their corners unfilled, even where
+// neighbors touch, so a finder pattern rendered in either shape never forms
+// the solid black region jsQR (and QR scanners generally) need to detect
+// it. Eyes are restricted to the shapes that stay solid.
+export type EyeShapeOptions = 'square' | 'rounded'
+
 type ShapeOptions = {
   shape?: BaseShapeOptions
-  eyePatternShape?: BaseShapeOptions
+  eyePatternShape?: EyeShapeOptions
   gap?: number
   eyePatternGap?: number
 }
@@ -25,11 +32,50 @@ const DEFAULT_OPTIONS: Required<TransformOptions> = {
   logoSize: 0,
 }
 
+// QR versions 2+ carry an alignment pattern in addition to the 3 corner
+// finder eyes - a smaller calibration square scanners rely on the same way.
+// Left unstyled, it hits the same "circle/diamond never solid" problem as
+// the eyes, so it must be detected and rendered with eyePatternShape too.
+// Coordinates follow ISO/IEC 18004 Annex E (ported from the `qrcode`
+// package's internal alignment-pattern module, which isn't public API).
+function getAlignmentPatternCenters(
+  version: number,
+  size: number,
+): Array<[number, number]> {
+  if (version === 1) return []
+
+  const posCount = Math.floor(version / 7) + 2
+  const intervals =
+    size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2
+  const positions = [size - 7]
+  for (let i = 1; i < posCount - 1; i++) {
+    positions[i] = positions[i - 1] - intervals
+  }
+  positions.push(6)
+  positions.reverse()
+
+  const centers: Array<[number, number]> = []
+  const n = positions.length
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const overlapsFinder =
+        (i === 0 && j === 0) ||
+        (i === 0 && j === n - 1) ||
+        (i === n - 1 && j === 0)
+      if (overlapsFinder) continue
+
+      centers.push([positions[i], positions[j]])
+    }
+  }
+  return centers
+}
+
 export function generatePath(
   matrix: QRCodeMatrix,
   quietZone: number,
   size: number,
   options: TransformOptions = DEFAULT_OPTIONS,
+  version = 1,
 ) {
   const {
     shape = 'rounded',
@@ -40,6 +86,10 @@ export function generatePath(
   } = options
   const cellSize = size / (matrix.length + quietZone * 2)
   const commands: PathCommand[] = []
+  const alignmentPatternCenters = getAlignmentPatternCenters(
+    version,
+    matrix.length,
+  )
 
   matrix.forEach((row, i) => {
     row.forEach((cell, j) => {
@@ -54,17 +104,20 @@ export function generatePath(
 
       if (cell !== 1 || isLogoArea) return
 
-      const isDetectionPattern =
+      const isFinderPattern =
         (i < 7 && j < 7) ||
         (i < 7 && j >= matrix.length - 7) ||
         (i >= matrix.length - 7 && j < 7)
+      const isAlignmentPattern = alignmentPatternCenters.some(
+        ([r, c]) => Math.abs(i - r) <= 2 && Math.abs(j - c) <= 2,
+      )
+      const isDetectionPattern = isFinderPattern || isAlignmentPattern
 
       const padding = (isDetectionPattern ? eyePatternGap : gap) / 2
       const effectiveCellSize =
         cellSize - (isDetectionPattern ? eyePatternGap : gap)
       const offset = effectiveCellSize / 2
 
-      /* Get corners */
       const x = (j + quietZone) * cellSize
       const y = (i + quietZone) * cellSize
       const cellCenter = { x: x + cellSize / 2, y: y + cellSize / 2 }
@@ -79,7 +132,6 @@ export function generatePath(
         d4: { x: x + padding, y: y + padding + offset },
       }
 
-      /* neighbors */
       const neighbors = {
         top: i > 0 && matrix[i - 1]?.[j] === 1,
         right: j < matrix.length - 1 && matrix[i]?.[j + 1] === 1,

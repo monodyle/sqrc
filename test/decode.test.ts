@@ -1,3 +1,4 @@
+import { createCanvas, loadImage } from '@napi-rs/canvas'
 import { Resvg } from '@resvg/resvg-js'
 import jsQR from 'jsqr'
 import { describe, expect, test } from 'vitest'
@@ -10,6 +11,15 @@ function decode(svg: string) {
     rendered.width,
     rendered.height,
   )
+}
+
+async function decodePng(png: Buffer, size: number) {
+  const image = await loadImage(png)
+  const canvas = createCanvas(size, size)
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(image, 0, 0)
+  const { data } = ctx.getImageData(0, 0, size, size)
+  return jsQR(data, size, size)
 }
 
 describe('QRCode.toSvg decode', () => {
@@ -35,4 +45,58 @@ describe('QRCode.toSvg decode', () => {
     const svg = new QRCode('sqrc', { errorCorrectionLevel: 'L' }).toSvg(128)
     expect(decode(svg)?.data).toBe('sqrc')
   })
+
+  test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
+    'decodes with body shape %s (eye pattern stays solid)',
+    (shape) => {
+      const svg = new QRCode('https://github.com/monodyle/sqrc', {
+        errorCorrectionLevel: 'M',
+      }).toSvg(512, { shape })
+
+      expect(decode(svg)?.data).toBe('https://github.com/monodyle/sqrc')
+    },
+  )
+})
+
+describe('QRCode.toPng decode', () => {
+  test.each([
+    ['Hello, world!', 'M'],
+    ['https://github.com/monodyle/sqrc', 'M'],
+    ['12345678901234567890', 'H'],
+    ['A', 'L'],
+  ] as const)(
+    'decodes back to the input for %s (ECC %s)',
+    async (value, errorCorrectionLevel) => {
+      const png = await new QRCode(value, { errorCorrectionLevel }).toPng(512)
+      expect((await decodePng(png, 512))?.data).toBe(value)
+    },
+  )
+
+  test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
+    'decodes with body shape %s (eye pattern stays solid)',
+    async (shape) => {
+      const qr = new QRCode('https://github.com/monodyle/sqrc', {
+        errorCorrectionLevel: 'M',
+      })
+      const png = await qr.toPng(512, { shape })
+
+      expect((await decodePng(png, 512))?.data).toBe(
+        'https://github.com/monodyle/sqrc',
+      )
+    },
+  )
+
+  test.each([['square'], ['rounded']] as const)(
+    'decodes with eye pattern shape %s',
+    async (eyePatternShape) => {
+      const qr = new QRCode('https://github.com/monodyle/sqrc', {
+        errorCorrectionLevel: 'M',
+      })
+      const png = await qr.toPng(512, { eyePatternShape })
+
+      expect((await decodePng(png, 512))?.data).toBe(
+        'https://github.com/monodyle/sqrc',
+      )
+    },
+  )
 })

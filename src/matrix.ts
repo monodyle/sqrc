@@ -8,15 +8,17 @@ const QUIET_ZONE = 4
 
 export class Matrix {
   protected value: QRCodeMatrix
+  private version: number
 
   constructor(
     value: string,
     ecc: QRCodeErrorCorrectionLevelType,
     version?: number,
   ) {
-    const matrix = Array.from(
-      QRCode.create(value, { errorCorrectionLevel: ecc, version }).modules.data,
-    ) as Array<0 | 1>
+    const created = QRCode.create(value, { errorCorrectionLevel: ecc, version })
+    const matrix = Array.from(created.modules.data) as Array<0 | 1>
+
+    this.version = created.version
 
     const size = Math.sqrt(matrix.length)
 
@@ -33,6 +35,6 @@ export class Matrix {
   }
 
   toPath(size: number, options?: TransformOptions) {
-    return generatePath(this.value, QUIET_ZONE, size, options)
+    return generatePath(this.value, QUIET_ZONE, size, options, this.version)
   }
 }
