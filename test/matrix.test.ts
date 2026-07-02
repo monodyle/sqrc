@@ -41,9 +41,18 @@ describe('toPath quiet zone', () => {
     const size = 200
     const matrix = new Matrix('example', 'M')
     const moduleCount = matrix.getValue().length
-    const { path, cellSize } = matrix.toPath(size)
+    const { commands, cellSize } = matrix.toPath(size)
 
-    const coordinates = path.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+    const coordinates: number[] = []
+    for (const command of commands) {
+      if (command.op === 'move' || command.op === 'line') {
+        coordinates.push(command.x, command.y)
+      } else if (command.op === 'quad') {
+        coordinates.push(command.cx, command.cy, command.x, command.y)
+      } else if (command.op === 'circle') {
+        coordinates.push(command.cx, command.cy)
+      }
+    }
     expect(coordinates.length).toBeGreaterThan(0)
 
     // Margin implied by cellSize vs. the raw module count, not a hardcoded
@@ -54,6 +63,30 @@ describe('toPath quiet zone', () => {
     for (const coordinate of coordinates) {
       expect(coordinate).toBeGreaterThanOrEqual(margin - 0.01)
       expect(coordinate).toBeLessThanOrEqual(size - margin + 0.01)
+    }
+  })
+})
+
+describe('toPath path model', () => {
+  test('returns structured commands rather than a serialized string', () => {
+    const matrix = new Matrix('example', 'M')
+    const { commands } = matrix.toPath(200)
+
+    expect(Array.isArray(commands)).toBe(true)
+    expect(commands.length).toBeGreaterThan(0)
+    for (const command of commands) {
+      expect(typeof command.op).toBe('string')
+    }
+  })
+
+  test('each shape produces commands consumable by a canvas-style replayer', () => {
+    const matrix = new Matrix('example', 'H')
+    const shapes = ['square', 'circle', 'rounded', 'diamond'] as const
+
+    for (const shape of shapes) {
+      const { commands } = matrix.toPath(200, { shape, eyePatternShape: shape })
+      expect(commands.length).toBeGreaterThan(0)
+      expect(commands.every((c) => c.op !== undefined)).toBe(true)
     }
   })
 })

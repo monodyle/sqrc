@@ -3,6 +3,7 @@ import {
   type TransformOptions,
   type QRCodeErrorCorrectionLevelType,
 } from './matrix'
+import { serializePath } from './render/svg'
 
 export type QRCodeOptions = {
   errorCorrectionLevel?: QRCodeErrorCorrectionLevelType
@@ -21,7 +22,8 @@ export class QRCode {
   }
 
   toSvg(size: number, options?: TransformOptions) {
-    const { path } = this._matrix.toPath(size, options)
+    const { commands } = this._matrix.toPath(size, options)
+    const path = serializePath(commands)
     return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><path d="${path}"/></svg>`
   }
 }
