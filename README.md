@@ -4,8 +4,8 @@
 
 Generate a customizable styled QRCode worked in NodeJS/Browser with TypeScript supported.
 
-| <img src="test/style-square.png" height="160" /> | <img src="test/style-dots.png" height="160" /> |
-|---|---|
+| <img src="test/style-square.png" height="160" />  | <img src="test/style-dots.png" height="160" />   |
+| ------------------------------------------------- | ------------------------------------------------ |
 | <img src="test/style-rounded.png" height="160" /> | <img src="test/style-classy.png" height="160" /> |
 
 ## Installation
@@ -71,7 +71,6 @@ Color of the background image
 - Default: `squares`
 
 Style of the QR modules
-
 
 ### `moduleGap`
 
@@ -167,22 +166,22 @@ new QRCode('https://github.com/monodyle/sqrc', {
       [48, 48, 8, 48],
       {
         outer: [48, 8, 48, 8],
-        inner: [0, 48, 0, 48]
+        inner: [0, 48, 0, 48],
       },
-      { inner: 4, outer: 100 }
+      { inner: 4, outer: 100 },
     ],
     color: [
       {
         inner: 'blueviolet',
-        outer: 'indigo'
+        outer: 'indigo',
       },
       '#1a4d2e',
       {
         inner: '#071952',
         outer: '#0c134f',
       },
-    ]
-  }
+    ],
+  },
 })
 ```
 
