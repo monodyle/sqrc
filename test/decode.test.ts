@@ -100,3 +100,75 @@ describe('QRCode.toPng decode', () => {
     },
   )
 })
+
+describe('QRCode.toSvg color and gradient decode', () => {
+  test('solid custom foreground/background still decodes', () => {
+    const svg = new QRCode('sqrc colors', {
+      errorCorrectionLevel: 'M',
+    }).toSvg(512, { foreground: '#1a1a2e', background: '#f4f4f4' })
+
+    expect(decode(svg)?.data).toBe('sqrc colors')
+  })
+
+  test('linear gradient foreground decodes and keeps the eyes visible', () => {
+    const svg = new QRCode('sqrc gradient', {
+      errorCorrectionLevel: 'M',
+    }).toSvg(512, {
+      foreground: {
+        from: '#0f0f2d',
+        to: '#00040a',
+        type: 'linear',
+        rotation: Math.PI / 4,
+      },
+    })
+
+    expect(decode(svg)?.data).toBe('sqrc gradient')
+  })
+
+  test('radial gradient foreground decodes', () => {
+    const svg = new QRCode('sqrc radial', {
+      errorCorrectionLevel: 'M',
+    }).toSvg(512, {
+      foreground: { from: '#111111', to: '#000000', type: 'radial' },
+    })
+
+    expect(decode(svg)?.data).toBe('sqrc radial')
+  })
+
+  test('eyeColor override decodes independently of a gradient body', () => {
+    const svg = new QRCode('sqrc eyes', {
+      errorCorrectionLevel: 'H',
+    }).toSvg(512, {
+      foreground: { from: '#1a1a2e', to: '#0d0d17' },
+      eyeColor: '#00274d',
+    })
+
+    expect(decode(svg)?.data).toBe('sqrc eyes')
+  })
+
+  test('eyeColor array applies a distinct color per eye and still decodes', () => {
+    const svg = new QRCode('sqrc eye array', {
+      errorCorrectionLevel: 'H',
+    }).toSvg(512, { eyeColor: ['#7f0000', '#004d00', '#00004d'] })
+
+    expect(decode(svg)?.data).toBe('sqrc eye array')
+  })
+})
+
+describe('QRCode.toPng color and gradient decode', () => {
+  test('gradient foreground decodes the same as the SVG path', async () => {
+    const png = await new QRCode('sqrc png gradient', {
+      errorCorrectionLevel: 'M',
+    }).toPng(512, { foreground: { from: '#0f0f2d', to: '#00040a' } })
+
+    expect((await decodePng(png, 512))?.data).toBe('sqrc png gradient')
+  })
+
+  test('eyeColor override decodes the same as the SVG path', async () => {
+    const png = await new QRCode('sqrc png eyes', {
+      errorCorrectionLevel: 'H',
+    }).toPng(512, { eyeColor: '#7f0000' })
+
+    expect((await decodePng(png, 512))?.data).toBe('sqrc png eyes')
+  })
+})

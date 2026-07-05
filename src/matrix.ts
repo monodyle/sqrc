@@ -2,7 +2,8 @@ import QRCode from 'qrcode'
 import { generatePath, type QRCodeMatrix, type TransformOptions } from './paths'
 
 export type QRCodeErrorCorrectionLevelType = 'L' | 'H' | 'Q' | 'M'
-export type { PathCommand, TransformOptions } from './paths'
+export type { PathCommand, PathGroup, TransformOptions } from './paths'
+export type { FillSpec, GradientSpec } from './color'
 
 const QUIET_ZONE = 4
 

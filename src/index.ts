@@ -1,2 +1,9 @@
-export type { QRCodeErrorCorrectionLevelType } from './matrix'
+export type {
+  QRCodeErrorCorrectionLevelType,
+  TransformOptions,
+  PathCommand,
+  PathGroup,
+  FillSpec,
+  GradientSpec,
+} from './matrix'
 export * from './qr'

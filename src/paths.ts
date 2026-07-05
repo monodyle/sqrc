@@ -1,3 +1,5 @@
+import type { Bounds, FillSpec } from './color'
+
 type QRCodeMatrixValue = 0 | 1
 export type QRCodeMatrix = Array<Array<QRCodeMatrixValue>>
 
@@ -15,21 +17,28 @@ type ShapeOptions = {
   gap?: number
   eyePatternGap?: number
 }
-export type TransformOptions = ShapeOptions & { logoSize?: number }
+type ColorOptions = {
+  foreground?: FillSpec
+  background?: FillSpec
+  // A single value colors all 3 finder eyes; a tuple assigns them
+  // individually in the order [top-left, top-right, bottom-left].
+  eyeColor?: FillSpec | [FillSpec, FillSpec, FillSpec]
+}
+export type TransformOptions = ShapeOptions &
+  ColorOptions & { logoSize?: number }
 
 export type PathCommand =
   | { op: 'move'; x: number; y: number }
   | { op: 'line'; x: number; y: number }
   | { op: 'quad'; cx: number; cy: number; x: number; y: number }
   | { op: 'circle'; cx: number; cy: number; r: number }
+  | { op: 'rect'; x: number; y: number; width: number; height: number }
   | { op: 'close' }
 
-const DEFAULT_OPTIONS: Required<TransformOptions> = {
-  shape: 'rounded',
-  eyePatternShape: 'rounded',
-  gap: 0,
-  eyePatternGap: 0,
-  logoSize: 0,
+export type PathGroup = {
+  commands: PathCommand[]
+  fill: FillSpec
+  bounds: Bounds
 }
 
 // QR versions 2+ carry an alignment pattern in addition to the 3 corner
@@ -70,26 +79,116 @@ function getAlignmentPatternCenters(
   return centers
 }
 
+type CellGeometry = {
+  cellCenter: { x: number; y: number }
+  corners: Record<
+    'q1' | 'q2' | 'q3' | 'q4' | 'd1' | 'd2' | 'd3' | 'd4',
+    { x: number; y: number }
+  >
+  effectiveCellSize: number
+  neighbors: { top: boolean; right: boolean; bottom: boolean; left: boolean }
+}
+
+function pushCellShape(
+  target: PathCommand[],
+  shape: BaseShapeOptions | EyeShapeOptions,
+  { cellCenter, corners, effectiveCellSize, neighbors }: CellGeometry,
+) {
+  const { q1, q2, q3, q4, d1, d2, d3, d4 } = corners
+
+  if (shape === 'circle') {
+    target.push({
+      op: 'circle',
+      cx: cellCenter.x,
+      cy: cellCenter.y,
+      r: effectiveCellSize / 2,
+    })
+  } else if (shape === 'rounded') {
+    target.push({ op: 'move', x: d1.x, y: d1.y })
+    if (neighbors.top || neighbors.right) {
+      target.push({ op: 'line', x: q1.x, y: q1.y })
+      target.push({ op: 'line', x: d2.x, y: d2.y })
+    } else {
+      target.push({ op: 'quad', cx: q1.x, cy: q1.y, x: d2.x, y: d2.y })
+    }
+    if (neighbors.right || neighbors.bottom) {
+      target.push({ op: 'line', x: q2.x, y: q2.y })
+      target.push({ op: 'line', x: d3.x, y: d3.y })
+    } else {
+      target.push({ op: 'quad', cx: q2.x, cy: q2.y, x: d3.x, y: d3.y })
+    }
+    if (neighbors.bottom || neighbors.left) {
+      target.push({ op: 'line', x: q3.x, y: q3.y })
+      target.push({ op: 'line', x: d4.x, y: d4.y })
+    } else {
+      target.push({ op: 'quad', cx: q3.x, cy: q3.y, x: d4.x, y: d4.y })
+    }
+    if (neighbors.left || neighbors.top) {
+      target.push({ op: 'line', x: q4.x, y: q4.y })
+      target.push({ op: 'line', x: d1.x, y: d1.y })
+    } else {
+      target.push({ op: 'quad', cx: q4.x, cy: q4.y, x: d1.x, y: d1.y })
+    }
+    target.push({ op: 'close' })
+  } else if (shape === 'diamond') {
+    target.push({ op: 'move', x: cellCenter.x, y: q4.y })
+    target.push({ op: 'line', x: q1.x, y: cellCenter.y })
+    target.push({ op: 'line', x: cellCenter.x, y: q2.y })
+    target.push({ op: 'line', x: q3.x, y: cellCenter.y })
+    target.push({ op: 'close' })
+  } else {
+    target.push({ op: 'move', x: q4.x, y: q4.y })
+    target.push({ op: 'line', x: q1.x, y: q1.y })
+    target.push({ op: 'line', x: q2.x, y: q2.y })
+    target.push({ op: 'line', x: q3.x, y: q3.y })
+    target.push({ op: 'close' })
+  }
+}
+
 export function generatePath(
   matrix: QRCodeMatrix,
   quietZone: number,
   size: number,
-  options: TransformOptions = DEFAULT_OPTIONS,
+  options: TransformOptions = {},
   version = 1,
-) {
+): { cellSize: number; groups: PathGroup[] } {
   const {
     shape = 'rounded',
     eyePatternShape = 'rounded',
     gap = 0,
     eyePatternGap = 0,
     logoSize = 0,
+    foreground = '#000',
+    background = '#fff',
+    eyeColor,
   } = options
   const cellSize = size / (matrix.length + quietZone * 2)
-  const commands: PathCommand[] = []
   const alignmentPatternCenters = getAlignmentPatternCenters(
     version,
     matrix.length,
   )
+  const finderOrigins: Array<[number, number]> = [
+    [0, 0],
+    [0, matrix.length - 7],
+    [matrix.length - 7, 0],
+  ]
+  const eyeColors =
+    eyeColor === undefined
+      ? null
+      : Array.isArray(eyeColor)
+        ? eyeColor
+        : [eyeColor, eyeColor, eyeColor]
+
+  // Index 0-2 collect the 3 finder eyes (only used when `eyeColor` is set,
+  // so they can become their own fill group); index 3 is everything else -
+  // body modules, alignment pattern, and eyes when there's no override.
+  const BODY = 3
+  const cellCommands: [
+    PathCommand[],
+    PathCommand[],
+    PathCommand[],
+    PathCommand[],
+  ] = [[], [], [], []]
 
   matrix.forEach((row, i) => {
     row.forEach((cell, j) => {
@@ -104,10 +203,10 @@ export function generatePath(
 
       if (cell !== 1 || isLogoArea) return
 
-      const isFinderPattern =
-        (i < 7 && j < 7) ||
-        (i < 7 && j >= matrix.length - 7) ||
-        (i >= matrix.length - 7 && j < 7)
+      const finderIndex = finderOrigins.findIndex(
+        ([r, c]) => i >= r && i < r + 7 && j >= c && j < c + 7,
+      )
+      const isFinderPattern = finderIndex !== -1
       const isAlignmentPattern = alignmentPatternCenters.some(
         ([r, c]) => Math.abs(i - r) <= 2 && Math.abs(j - c) <= 2,
       )
@@ -139,58 +238,53 @@ export function generatePath(
         left: j > 0 && matrix[i]?.[j - 1] === 1,
       }
 
-      const { q1, q2, q3, q4, d1, d2, d3, d4 } = corners
       const currentShape = isDetectionPattern ? eyePatternShape : shape
+      const target =
+        cellCommands[isFinderPattern && eyeColors ? finderIndex : BODY]
 
-      if (currentShape === 'circle') {
-        commands.push({
-          op: 'circle',
-          cx: cellCenter.x,
-          cy: cellCenter.y,
-          r: effectiveCellSize / 2,
-        })
-      } else if (currentShape === 'rounded') {
-        commands.push({ op: 'move', x: d1.x, y: d1.y })
-        if (neighbors.top || neighbors.right) {
-          commands.push({ op: 'line', x: q1.x, y: q1.y })
-          commands.push({ op: 'line', x: d2.x, y: d2.y })
-        } else {
-          commands.push({ op: 'quad', cx: q1.x, cy: q1.y, x: d2.x, y: d2.y })
-        }
-        if (neighbors.right || neighbors.bottom) {
-          commands.push({ op: 'line', x: q2.x, y: q2.y })
-          commands.push({ op: 'line', x: d3.x, y: d3.y })
-        } else {
-          commands.push({ op: 'quad', cx: q2.x, cy: q2.y, x: d3.x, y: d3.y })
-        }
-        if (neighbors.bottom || neighbors.left) {
-          commands.push({ op: 'line', x: q3.x, y: q3.y })
-          commands.push({ op: 'line', x: d4.x, y: d4.y })
-        } else {
-          commands.push({ op: 'quad', cx: q3.x, cy: q3.y, x: d4.x, y: d4.y })
-        }
-        if (neighbors.left || neighbors.top) {
-          commands.push({ op: 'line', x: q4.x, y: q4.y })
-          commands.push({ op: 'line', x: d1.x, y: d1.y })
-        } else {
-          commands.push({ op: 'quad', cx: q4.x, cy: q4.y, x: d1.x, y: d1.y })
-        }
-        commands.push({ op: 'close' })
-      } else if (currentShape === 'diamond') {
-        commands.push({ op: 'move', x: cellCenter.x, y: q4.y })
-        commands.push({ op: 'line', x: q1.x, y: cellCenter.y })
-        commands.push({ op: 'line', x: cellCenter.x, y: q2.y })
-        commands.push({ op: 'line', x: q3.x, y: cellCenter.y })
-        commands.push({ op: 'close' })
-      } else {
-        commands.push({ op: 'move', x: q4.x, y: q4.y })
-        commands.push({ op: 'line', x: q1.x, y: q1.y })
-        commands.push({ op: 'line', x: q2.x, y: q2.y })
-        commands.push({ op: 'line', x: q3.x, y: q3.y })
-        commands.push({ op: 'close' })
-      }
+      pushCellShape(target, currentShape, {
+        cellCenter,
+        corners,
+        effectiveCellSize,
+        neighbors,
+      })
     })
   })
 
-  return { cellSize, commands }
+  const groups: PathGroup[] = [
+    {
+      commands: [{ op: 'rect', x: 0, y: 0, width: size, height: size }],
+      fill: background,
+      bounds: { x: 0, y: 0, width: size, height: size },
+    },
+  ]
+
+  if (eyeColors) {
+    finderOrigins.forEach(([r, c], idx) => {
+      if (cellCommands[idx].length === 0) return
+      groups.push({
+        commands: cellCommands[idx],
+        fill: eyeColors[idx],
+        bounds: {
+          x: (c + quietZone) * cellSize,
+          y: (r + quietZone) * cellSize,
+          width: 7 * cellSize,
+          height: 7 * cellSize,
+        },
+      })
+    })
+  }
+
+  groups.push({
+    commands: cellCommands[BODY],
+    fill: foreground,
+    bounds: {
+      x: quietZone * cellSize,
+      y: quietZone * cellSize,
+      width: matrix.length * cellSize,
+      height: matrix.length * cellSize,
+    },
+  })
+
+  return { cellSize, groups }
 }

@@ -32,15 +32,19 @@ describe('generateMatrix', () => {
   })
 })
 
+function bodyCommands(groups: ReturnType<Matrix['toPath']>['groups']) {
+  return groups[groups.length - 1].commands
+}
+
 describe('toPath quiet zone', () => {
   test('insets every drawn coordinate by a margin around the modules', () => {
     const size = 200
     const matrix = new Matrix('example', 'M')
     const moduleCount = matrix.getValue().length
-    const { commands, cellSize } = matrix.toPath(size)
+    const { groups, cellSize } = matrix.toPath(size)
 
     const coordinates: number[] = []
-    for (const command of commands) {
+    for (const command of bodyCommands(groups)) {
       if (command.op === 'move' || command.op === 'line') {
         coordinates.push(command.x, command.y)
       } else if (command.op === 'quad') {
@@ -64,15 +68,26 @@ describe('toPath quiet zone', () => {
 })
 
 describe('toPath path model', () => {
-  test('returns structured commands rather than a serialized string', () => {
+  test('returns fill groups with structured commands rather than a serialized string', () => {
     const matrix = new Matrix('example', 'M')
-    const { commands } = matrix.toPath(200)
+    const { groups } = matrix.toPath(200)
 
-    expect(Array.isArray(commands)).toBe(true)
-    expect(commands.length).toBeGreaterThan(0)
-    for (const command of commands) {
-      expect(typeof command.op).toBe('string')
+    expect(Array.isArray(groups)).toBe(true)
+    expect(groups.length).toBeGreaterThan(0)
+    for (const group of groups) {
+      expect(typeof group.fill).not.toBe('undefined')
+      for (const command of group.commands) {
+        expect(typeof command.op).toBe('string')
+      }
     }
+  })
+
+  test('defaults to a black-on-white fill so output scans on any surface', () => {
+    const matrix = new Matrix('example', 'M')
+    const { groups } = matrix.toPath(200)
+
+    expect(groups[0].fill).toBe('#fff')
+    expect(groups[groups.length - 1].fill).toBe('#000')
   })
 
   test('each body shape produces commands consumable by a canvas-style replayer', () => {
@@ -80,7 +95,7 @@ describe('toPath path model', () => {
     const shapes = ['square', 'circle', 'rounded', 'diamond'] as const
 
     for (const shape of shapes) {
-      const { commands } = matrix.toPath(200, { shape })
+      const commands = bodyCommands(matrix.toPath(200, { shape }).groups)
       expect(commands.length).toBeGreaterThan(0)
       expect(commands.every((c) => c.op !== undefined)).toBe(true)
     }
@@ -91,9 +106,36 @@ describe('toPath path model', () => {
     const eyePatternShapes = ['square', 'rounded'] as const
 
     for (const eyePatternShape of eyePatternShapes) {
-      const { commands } = matrix.toPath(200, { eyePatternShape })
+      const commands = bodyCommands(
+        matrix.toPath(200, { eyePatternShape }).groups,
+      )
       expect(commands.length).toBeGreaterThan(0)
       expect(commands.every((c) => c.op !== undefined)).toBe(true)
     }
+  })
+})
+
+describe('toPath eyeColor override', () => {
+  test('splits the 3 finder eyes into their own fill groups', () => {
+    const matrix = new Matrix('example', 'H')
+    const { groups } = matrix.toPath(200, { eyeColor: '#f00' })
+
+    // background + 3 eyes + body
+    expect(groups.length).toBe(5)
+    for (const group of groups.slice(1, 4)) {
+      expect(group.fill).toBe('#f00')
+    }
+    expect(groups[groups.length - 1].fill).toBe('#000')
+  })
+
+  test('applies distinct colors per eye when given an array of 3', () => {
+    const matrix = new Matrix('example', 'H')
+    const { groups } = matrix.toPath(200, {
+      eyeColor: ['#f00', '#0f0', '#00f'],
+    })
+
+    expect(groups[1].fill).toBe('#f00')
+    expect(groups[2].fill).toBe('#0f0')
+    expect(groups[3].fill).toBe('#00f')
   })
 })
