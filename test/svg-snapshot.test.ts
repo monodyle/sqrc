@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import { QRCode } from "../src";
 
 describe("QRCode.toSvg snapshot", () => {
-  test("solid foreground/background", () => {
-    const svg = new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
+  test("solid foreground/background", async () => {
+    const svg = await new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
       shape: "square",
       eyePatternShape: "square",
       foreground: "#1a1a2e",
@@ -14,8 +14,8 @@ describe("QRCode.toSvg snapshot", () => {
     expect(svg).toMatchSnapshot();
   });
 
-  test("linear gradient foreground", () => {
-    const svg = new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
+  test("linear gradient foreground", async () => {
+    const svg = await new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
       shape: "square",
       eyePatternShape: "square",
       foreground: {
@@ -28,8 +28,8 @@ describe("QRCode.toSvg snapshot", () => {
     expect(svg).toMatchSnapshot();
   });
 
-  test("radial gradient foreground", () => {
-    const svg = new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
+  test("radial gradient foreground", async () => {
+    const svg = await new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
       shape: "square",
       eyePatternShape: "square",
       foreground: { from: "#000", to: "#333", type: "radial" },
@@ -37,8 +37,8 @@ describe("QRCode.toSvg snapshot", () => {
     expect(svg).toMatchSnapshot();
   });
 
-  test("eyeColor override", () => {
-    const svg = new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
+  test("eyeColor override", async () => {
+    const svg = await new QRCode("sqrc", { errorCorrectionLevel: "L" }).toSvg(64, {
       shape: "square",
       eyePatternShape: "square",
       eyeColor: ["#f00", "#0f0", "#00f"],

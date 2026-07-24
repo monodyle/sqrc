@@ -1,4 +1,5 @@
 import type { Bounds, FillSpec } from './color'
+import { type LogoMetrics, type LogoOptions, computeLogoMetrics, logoKnockoutRange } from './logo'
 
 type QRCodeMatrixValue = 0 | 1
 export type QRCodeMatrix = Array<Array<QRCodeMatrixValue>>
@@ -25,7 +26,7 @@ type ColorOptions = {
   eyeColor?: FillSpec | [FillSpec, FillSpec, FillSpec]
 }
 export type TransformOptions = ShapeOptions &
-  ColorOptions & { logoSize?: number }
+  ColorOptions & { logo?: LogoOptions }
 
 export type PathCommand =
   | { op: 'move'; x: number; y: number }
@@ -33,6 +34,7 @@ export type PathCommand =
   | { op: 'quad'; cx: number; cy: number; x: number; y: number }
   | { op: 'circle'; cx: number; cy: number; r: number }
   | { op: 'rect'; x: number; y: number; width: number; height: number }
+  | { op: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { op: 'close' }
 
 export type PathGroup = {
@@ -151,18 +153,19 @@ export function generatePath(
   size: number,
   options: TransformOptions = {},
   version = 1,
-): { cellSize: number; groups: PathGroup[] } {
+): { cellSize: number; groups: PathGroup[]; logoMetrics?: LogoMetrics } {
   const {
     shape = 'rounded',
     eyePatternShape = 'rounded',
     gap = 0,
     eyePatternGap = 0,
-    logoSize = 0,
+    logo,
     foreground = '#000',
     background = '#fff',
     eyeColor,
   } = options
   const cellSize = size / (matrix.length + quietZone * 2)
+  const logoMetrics = logo ? computeLogoMetrics(logo, size) : undefined
   const alignmentPatternCenters = getAlignmentPatternCenters(
     version,
     matrix.length,
@@ -190,18 +193,21 @@ export function generatePath(
     PathCommand[],
   ] = [[], [], [], []]
 
+  // Cells hidden behind the logo (plus a one-cell margin) are skipped so the
+  // logo never touches a live module; error correction recovers the rest.
+  const knockout = logoMetrics
+    ? logoKnockoutRange(logoMetrics, cellSize, quietZone, matrix.length)
+    : undefined
+  const isKnockedOut = (i: number, j: number) =>
+    knockout !== undefined &&
+    i >= knockout.rowStart &&
+    i <= knockout.rowEnd &&
+    j >= knockout.colStart &&
+    j <= knockout.colEnd
+
   matrix.forEach((row, i) => {
     row.forEach((cell, j) => {
-      const center = Math.floor(matrix.length / 2)
-      const logoRadius = Math.floor(logoSize / cellSize / 2)
-      const isLogoArea =
-        logoSize !== 0 &&
-        i >= center - logoRadius &&
-        i <= center + logoRadius &&
-        j >= center - logoRadius &&
-        j <= center + logoRadius
-
-      if (cell !== 1 || isLogoArea) return
+      if (cell !== 1 || isKnockedOut(i, j)) return
 
       const finderIndex = finderOrigins.findIndex(
         ([r, c]) => i >= r && i < r + 7 && j >= c && j < c + 7,
@@ -286,5 +292,37 @@ export function generatePath(
     },
   })
 
-  return { cellSize, groups }
+  // A background-colored field behind the logo so it doesn't sit directly on
+  // live modules. Drawn after the body so it cleanly covers the knocked-out
+  // center; the logo image itself is laid on top by the render adapter.
+  if (logoMetrics) {
+    const padCommand: PathCommand =
+      logoMetrics.style === 'circle'
+        ? {
+            op: 'ellipse',
+            cx: logoMetrics.padX + logoMetrics.padWidth / 2,
+            cy: logoMetrics.padY + logoMetrics.padHeight / 2,
+            rx: logoMetrics.padWidth / 2,
+            ry: logoMetrics.padHeight / 2,
+          }
+        : {
+            op: 'rect',
+            x: logoMetrics.padX,
+            y: logoMetrics.padY,
+            width: logoMetrics.padWidth,
+            height: logoMetrics.padHeight,
+          }
+    groups.push({
+      commands: [padCommand],
+      fill: background,
+      bounds: {
+        x: logoMetrics.padX,
+        y: logoMetrics.padY,
+        width: logoMetrics.padWidth,
+        height: logoMetrics.padHeight,
+      },
+    })
+  }
+
+  return { cellSize, groups, logoMetrics }
 }

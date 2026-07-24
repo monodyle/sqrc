@@ -30,26 +30,26 @@ describe('QRCode.toSvg decode', () => {
     ['A', 'L'],
   ] as const)(
     'decodes back to the input for %s (ECC %s)',
-    (value, errorCorrectionLevel) => {
-      const svg = new QRCode(value, { errorCorrectionLevel }).toSvg(512)
+    async (value, errorCorrectionLevel) => {
+      const svg = await new QRCode(value, { errorCorrectionLevel }).toSvg(512)
       expect(decode(svg)?.data).toBe(value)
     },
   )
 
-  test('defaults to ECC M when only version is given', () => {
-    const svg = new QRCode('sqrc', { version: 5 }).toSvg(512)
+  test('defaults to ECC M when only version is given', async () => {
+    const svg = await new QRCode('sqrc', { version: 5 }).toSvg(512)
     expect(decode(svg)?.data).toBe('sqrc')
   })
 
-  test('still decodes at a small render size with the quiet zone in place', () => {
-    const svg = new QRCode('sqrc', { errorCorrectionLevel: 'L' }).toSvg(128)
+  test('still decodes at a small render size with the quiet zone in place', async () => {
+    const svg = await new QRCode('sqrc', { errorCorrectionLevel: 'L' }).toSvg(128)
     expect(decode(svg)?.data).toBe('sqrc')
   })
 
   test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
     'decodes with body shape %s (eye pattern stays solid)',
-    (shape) => {
-      const svg = new QRCode('https://github.com/monodyle/sqrc', {
+    async (shape) => {
+      const svg = await new QRCode('https://github.com/monodyle/sqrc', {
         errorCorrectionLevel: 'M',
       }).toSvg(512, { shape })
 
@@ -102,16 +102,16 @@ describe('QRCode.toPng decode', () => {
 })
 
 describe('QRCode.toSvg color and gradient decode', () => {
-  test('solid custom foreground/background still decodes', () => {
-    const svg = new QRCode('sqrc colors', {
+  test('solid custom foreground/background still decodes', async () => {
+    const svg = await new QRCode('sqrc colors', {
       errorCorrectionLevel: 'M',
     }).toSvg(512, { foreground: '#1a1a2e', background: '#f4f4f4' })
 
     expect(decode(svg)?.data).toBe('sqrc colors')
   })
 
-  test('linear gradient foreground decodes and keeps the eyes visible', () => {
-    const svg = new QRCode('sqrc gradient', {
+  test('linear gradient foreground decodes and keeps the eyes visible', async () => {
+    const svg = await new QRCode('sqrc gradient', {
       errorCorrectionLevel: 'M',
     }).toSvg(512, {
       foreground: {
@@ -125,8 +125,8 @@ describe('QRCode.toSvg color and gradient decode', () => {
     expect(decode(svg)?.data).toBe('sqrc gradient')
   })
 
-  test('radial gradient foreground decodes', () => {
-    const svg = new QRCode('sqrc radial', {
+  test('radial gradient foreground decodes', async () => {
+    const svg = await new QRCode('sqrc radial', {
       errorCorrectionLevel: 'M',
     }).toSvg(512, {
       foreground: { from: '#111111', to: '#000000', type: 'radial' },
@@ -135,8 +135,8 @@ describe('QRCode.toSvg color and gradient decode', () => {
     expect(decode(svg)?.data).toBe('sqrc radial')
   })
 
-  test('eyeColor override decodes independently of a gradient body', () => {
-    const svg = new QRCode('sqrc eyes', {
+  test('eyeColor override decodes independently of a gradient body', async () => {
+    const svg = await new QRCode('sqrc eyes', {
       errorCorrectionLevel: 'H',
     }).toSvg(512, {
       foreground: { from: '#1a1a2e', to: '#0d0d17' },
@@ -146,8 +146,8 @@ describe('QRCode.toSvg color and gradient decode', () => {
     expect(decode(svg)?.data).toBe('sqrc eyes')
   })
 
-  test('eyeColor array applies a distinct color per eye and still decodes', () => {
-    const svg = new QRCode('sqrc eye array', {
+  test('eyeColor array applies a distinct color per eye and still decodes', async () => {
+    const svg = await new QRCode('sqrc eye array', {
       errorCorrectionLevel: 'H',
     }).toSvg(512, { eyeColor: ['#7f0000', '#004d00', '#00004d'] })
 

@@ -6,6 +6,7 @@ import {
   isGradientSpec,
   toSquareBounds,
 } from '../color'
+import type { LogoMetrics, ResolvedLogoSource } from '../logo'
 import type { PathCommand, PathGroup } from '../paths'
 
 // Color/gradient values come from library callers and can end up holding
@@ -37,6 +38,11 @@ export function serializeCommands(commands: PathCommand[]): string {
       case 'circle': {
         const { cx, cy, r } = command
         d += `M${cx - r} ${cy} a${r},${r} 0 1,0 ${r * 2},0 a${r},${r} 0 1,0 ${-r * 2},0 `
+        break
+      }
+      case 'ellipse': {
+        const { cx, cy, rx, ry } = command
+        d += `M${cx - rx} ${cy} a${rx},${ry} 0 1,0 ${rx * 2},0 a${rx},${ry} 0 1,0 ${-rx * 2},0 `
         break
       }
       case 'rect': {
@@ -73,7 +79,11 @@ function serializeGradientDef(
   return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`
 }
 
-export function serializeGroups(groups: PathGroup[], size: number): string {
+export function serializeGroups(
+  groups: PathGroup[],
+  size: number,
+  logo?: { metrics: LogoMetrics; source: ResolvedLogoSource },
+): string {
   let defs = ''
   let body = ''
   let gradientId = 0
@@ -94,6 +104,53 @@ export function serializeGroups(groups: PathGroup[], size: number): string {
     body += `<path d="${d}" fill="${fillAttr}"/>`
   }
 
+  if (logo) {
+    body += serializeLogo(logo.metrics, logo.source, (clipId) => {
+      defs += clipId
+    })
+  }
+
   const defsBlock = defs ? `<defs>${defs}</defs>` : ''
   return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${defsBlock}${body}</svg>`
+}
+
+// The logo as the last SVG element so it sits on top of the modules and the
+// background padding field. Raster logos embed as a base64 `<image>` (no
+// external request when the SVG is later rendered); an SVG logo is inlined
+// directly so it stays vector-crisp at any size.
+function serializeLogo(
+  metrics: LogoMetrics,
+  source: ResolvedLogoSource,
+  addDef: (def: string) => void,
+): string {
+  const opacityAttr =
+    metrics.opacity < 1 ? ` opacity="${metrics.opacity}"` : ''
+
+  let clipAttr = ''
+  if (metrics.style === 'circle') {
+    const clipId = 'sqrc-logo-clip'
+    addDef(
+      `<clipPath id="${clipId}"><ellipse cx="${metrics.x + metrics.width / 2}" cy="${
+        metrics.y + metrics.height / 2
+      }" rx="${metrics.width / 2}" ry="${metrics.height / 2}"/></clipPath>`,
+    )
+    clipAttr = ` clip-path="url(#${clipId})"`
+  }
+
+  if (source.contentType === 'image/svg+xml') {
+    const svgText = new TextDecoder().decode(source.bytes)
+    const positioned = svgText.replace(
+      /<svg(?=\s)/i,
+      `<svg x="${metrics.x}" y="${metrics.y}" width="${metrics.width}" height="${
+        metrics.height
+      }" preserveAspectRatio="none"`,
+    )
+    return `<g${clipAttr}${opacityAttr}>${positioned}</g>`
+  }
+
+  return (
+    `<image href="${source.dataUrl}" x="${metrics.x}" y="${metrics.y}" ` +
+    `width="${metrics.width}" height="${metrics.height}" ` +
+    `preserveAspectRatio="none"${clipAttr}${opacityAttr}/>`
+  )
 }
