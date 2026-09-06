@@ -60,13 +60,29 @@ export class QRCode {
     )
   }
 
-  async toPng(size: number, options?: TransformOptions): Promise<Buffer> {
-    const { createCanvas, loadImage } = await import('@napi-rs/canvas')
+  async toPng(size: number, options?: TransformOptions): Promise<Uint8Array> {
+    // The native peer is loaded lazily so SVG/canvas users never pull it in.
+    // When it cannot load (a browser, or a Node project that skipped the
+    // optional peer) the raw failure is a cryptic native ReferenceError, so we
+    // translate it into something the caller can act on.
+    let canvasMod: typeof import('@napi-rs/canvas')
+    try {
+      canvasMod = await import('@napi-rs/canvas')
+    } catch (cause) {
+      throw new Error(
+        'sqrc: toPng() needs the optional "@napi-rs/canvas" peer dependency, ' +
+          'which only runs in Node.js. Use toSvg() or toCanvas() in the browser.',
+        { cause },
+      )
+    }
+    const { createCanvas, loadImage } = canvasMod
     const canvas = createCanvas(size, size)
     const ctx = canvas.getContext('2d')
 
     const logo = options?.logo
-    const logoImage = logo ? await loadImage(resolveLogoSource(logo).bytes) : undefined
+    const logoImage = logo
+      ? await loadImage(resolveLogoSource(logo).bytes)
+      : undefined
 
     await this.toCanvas(ctx, size, options, logoImage)
 
