@@ -123,8 +123,7 @@ function serializeLogo(
   source: ResolvedLogoSource,
   addDef: (def: string) => void,
 ): string {
-  const opacityAttr =
-    metrics.opacity < 1 ? ` opacity="${metrics.opacity}"` : ''
+  const opacityAttr = metrics.opacity < 1 ? ` opacity="${metrics.opacity}"` : ''
 
   let clipAttr = ''
   if (metrics.style === 'circle') {
@@ -149,7 +148,7 @@ function serializeLogo(
   }
 
   return (
-    `<image href="${source.dataUrl}" x="${metrics.x}" y="${metrics.y}" ` +
+    `<image href="${escapeAttr(source.dataUrl)}" x="${metrics.x}" y="${metrics.y}" ` +
     `width="${metrics.width}" height="${metrics.height}" ` +
     `preserveAspectRatio="none"${clipAttr}${opacityAttr}/>`
   )
