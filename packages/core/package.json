@@ -38,6 +38,7 @@
     "build": "rslib build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "examples": "rslib build && node scripts/generate-examples.mjs",
     "test:browser": "node test/browser/run-browser-test.mjs",
     "test:browser:static": "rslib build && node test/browser-static/run-static-test.mjs"
   },
