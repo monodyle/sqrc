@@ -1,0 +1,19 @@
+{
+  "name": "sqrc-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @sqrc/web-ui dev",
+    "build": "pnpm -r build",
+    "test": "pnpm --filter sqrc test",
+    "test:browser": "pnpm --filter sqrc test:browser",
+    "test:browser:static": "pnpm --filter sqrc test:browser:static",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.57.0",
+    "oxlint": "^1.72.0"
+  }
+}
