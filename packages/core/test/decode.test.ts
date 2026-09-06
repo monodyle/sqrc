@@ -137,6 +137,36 @@ describe('QRCode.toSvg color and gradient decode', () => {
   })
 })
 
+describe('QRCode high-version codes with a body-shaped alignment pattern', () => {
+  // A long payload forces a high QR version with several alignment patterns.
+  // The alignment pattern follows the body shape, so every shape must
+  // still decode on codes with several of them.
+  const longValue =
+    'https://github.com/monodyle/sqrc?ref=high-version-alignment-0123456789'
+
+  test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
+    'toSvg decodes a high-version %s code',
+    async (shape) => {
+      const svg = await new QRCode(longValue, {
+        errorCorrectionLevel: 'H',
+      }).toSvg(800, { shape })
+
+      expect(await decodeSvg(svg)).toBe(longValue)
+    },
+  )
+
+  test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
+    'toPng decodes a high-version %s code',
+    async (shape) => {
+      const png = await new QRCode(longValue, {
+        errorCorrectionLevel: 'H',
+      }).toPng(800, { shape })
+
+      expect(await decodePng(png, 800)).toBe(longValue)
+    },
+  )
+})
+
 describe('QRCode.toPng color and gradient decode', () => {
   test('gradient foreground decodes the same as the SVG path', async () => {
     const png = await new QRCode('sqrc png gradient', {

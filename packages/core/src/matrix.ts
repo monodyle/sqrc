@@ -53,7 +53,11 @@ export class Matrix {
     ecc: QRCodeErrorCorrectionLevelType,
     version?: number,
   ) {
-    const { matrix, version: resolvedVersion } = createMatrix(value, ecc, version)
+    const { matrix, version: resolvedVersion } = createMatrix(
+      value,
+      ecc,
+      version,
+    )
 
     this.input = value
     this.ecc = ecc
@@ -68,14 +72,14 @@ export class Matrix {
   toPath(size: number, options?: TransformOptions) {
     const logo = options?.logo
     if (!logo) {
-      return generatePath(this.value, QUIET_ZONE, size, options, this.version)
+      return generatePath(this.value, QUIET_ZONE, size, options)
     }
 
     // With a logo, retry at increasing versions until the modules it knocks
     // out are a small enough share of the dark modules to stay correctable.
     for (let version = this.version; version <= 40; version++) {
       const { matrix } = createMatrix(this.input, this.ecc, version)
-      const result = generatePath(matrix, QUIET_ZONE, size, options, version)
+      const result = generatePath(matrix, QUIET_ZONE, size, options)
       if (this.logoDamageIsRecoverable(matrix, result.logoMetrics, size)) {
         this.value = matrix
         this.version = version

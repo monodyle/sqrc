@@ -1,5 +1,10 @@
 import type { Bounds, FillSpec } from './color'
-import { type LogoMetrics, type LogoOptions, computeLogoMetrics, logoKnockoutRange } from './logo'
+import {
+  type LogoMetrics,
+  type LogoOptions,
+  computeLogoMetrics,
+  logoKnockoutRange,
+} from './logo'
 
 type QRCodeMatrixValue = 0 | 1
 export type QRCodeMatrix = Array<Array<QRCodeMatrixValue>>
@@ -8,8 +13,8 @@ export type BaseShapeOptions = 'square' | 'circle' | 'rounded' | 'diamond'
 
 // circle/diamond modules always leave their corners unfilled, even where
 // neighbors touch, so a finder pattern rendered in either shape never forms
-// the solid black region jsQR (and QR scanners generally) need to detect
-// it. Eyes are restricted to the shapes that stay solid.
+// the solid black region QR scanners need to detect it. Eyes are
+// restricted to the shapes that stay solid.
 export type EyeShapeOptions = 'square' | 'rounded'
 
 type ShapeOptions = {
@@ -41,44 +46,6 @@ export type PathGroup = {
   commands: PathCommand[]
   fill: FillSpec
   bounds: Bounds
-}
-
-// QR versions 2+ carry an alignment pattern in addition to the 3 corner
-// finder eyes - a smaller calibration square scanners rely on the same way.
-// Left unstyled, it hits the same "circle/diamond never solid" problem as
-// the eyes, so it must be detected and rendered with eyePatternShape too.
-// Coordinates follow ISO/IEC 18004 Annex E (ported from the `qrcode`
-// package's internal alignment-pattern module, which isn't public API).
-function getAlignmentPatternCenters(
-  version: number,
-  size: number,
-): Array<[number, number]> {
-  if (version === 1) return []
-
-  const posCount = Math.floor(version / 7) + 2
-  const intervals =
-    size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2
-  const positions = [size - 7]
-  for (let i = 1; i < posCount - 1; i++) {
-    positions[i] = positions[i - 1] - intervals
-  }
-  positions.push(6)
-  positions.reverse()
-
-  const centers: Array<[number, number]> = []
-  const n = positions.length
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      const overlapsFinder =
-        (i === 0 && j === 0) ||
-        (i === 0 && j === n - 1) ||
-        (i === n - 1 && j === 0)
-      if (overlapsFinder) continue
-
-      centers.push([positions[i], positions[j]])
-    }
-  }
-  return centers
 }
 
 type CellGeometry = {
@@ -152,7 +119,6 @@ export function generatePath(
   quietZone: number,
   size: number,
   options: TransformOptions = {},
-  version = 1,
 ): { cellSize: number; groups: PathGroup[]; logoMetrics?: LogoMetrics } {
   const {
     shape = 'rounded',
@@ -166,10 +132,6 @@ export function generatePath(
   } = options
   const cellSize = size / (matrix.length + quietZone * 2)
   const logoMetrics = logo ? computeLogoMetrics(logo, size) : undefined
-  const alignmentPatternCenters = getAlignmentPatternCenters(
-    version,
-    matrix.length,
-  )
   const finderOrigins: Array<[number, number]> = [
     [0, 0],
     [0, matrix.length - 7],
@@ -184,7 +146,7 @@ export function generatePath(
 
   // Index 0-2 collect the 3 finder eyes (only used when `eyeColor` is set,
   // so they can become their own fill group); index 3 is everything else -
-  // body modules, alignment pattern, and eyes when there's no override.
+  // body modules and eyes when there's no override.
   const BODY = 3
   const cellCommands: [
     PathCommand[],
@@ -213,14 +175,10 @@ export function generatePath(
         ([r, c]) => i >= r && i < r + 7 && j >= c && j < c + 7,
       )
       const isFinderPattern = finderIndex !== -1
-      const isAlignmentPattern = alignmentPatternCenters.some(
-        ([r, c]) => Math.abs(i - r) <= 2 && Math.abs(j - c) <= 2,
-      )
-      const isDetectionPattern = isFinderPattern || isAlignmentPattern
+      const cellGap = isFinderPattern ? eyePatternGap : gap
 
-      const padding = (isDetectionPattern ? eyePatternGap : gap) / 2
-      const effectiveCellSize =
-        cellSize - (isDetectionPattern ? eyePatternGap : gap)
+      const padding = cellGap / 2
+      const effectiveCellSize = cellSize - cellGap
       const offset = effectiveCellSize / 2
 
       const x = (j + quietZone) * cellSize
@@ -244,7 +202,7 @@ export function generatePath(
         left: j > 0 && matrix[i]?.[j - 1] === 1,
       }
 
-      const currentShape = isDetectionPattern ? eyePatternShape : shape
+      const currentShape = isFinderPattern ? eyePatternShape : shape
       const target =
         cellCommands[isFinderPattern && eyeColors ? finderIndex : BODY]
 
