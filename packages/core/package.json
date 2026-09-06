@@ -19,6 +19,7 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -27,13 +28,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/browser/index.mjs"
     }
   },
   "scripts": {
     "build": "rslib build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:browser": "node test/browser/run-browser-test.mjs"
+    "test:browser": "node test/browser/run-browser-test.mjs",
+    "test:browser:static": "rslib build && node test/browser-static/run-static-test.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
