@@ -47,7 +47,13 @@ export interface Canvas2DContext {
   clip(): void
   // The image type differs per runtime (HTMLImageElement in the browser, the
   // @napi-rs/canvas Image in node), so it stays an opaque handle here.
-  drawImage(image: unknown, dx: number, dy: number, dw: number, dh: number): void
+  drawImage(
+    image: unknown,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void
   createLinearGradient(
     x0: number,
     y0: number,
@@ -152,7 +158,11 @@ export function renderToCanvas(
 // The logo image is drawn last so it covers the center knockout. A circle
 // style clips to an ellipse; opacity is applied via globalAlpha and restored
 // afterward so it doesn't leak into anything drawn next.
-function drawLogo(ctx: Canvas2DContext, metrics: LogoMetrics, image: unknown): void {
+function drawLogo(
+  ctx: Canvas2DContext,
+  metrics: LogoMetrics,
+  image: unknown,
+): void {
   ctx.save()
 
   if (metrics.opacity < 1) ctx.globalAlpha = metrics.opacity

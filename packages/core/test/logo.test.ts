@@ -38,9 +38,9 @@ describe('computeLogoMetrics', () => {
   })
 
   test('rejects a logo large enough to outrun error correction', () => {
-    expect(() =>
-      computeLogoMetrics({ url: 'x', width: 400 }, 500),
-    ).toThrow(/too large to scan/)
+    expect(() => computeLogoMetrics({ url: 'x', width: 400 }, 500)).toThrow(
+      /too large to scan/,
+    )
   })
 })
 
@@ -64,10 +64,7 @@ describe('logoKnockoutRange', () => {
       { url: 'x', width: 60, height: 60, padding: 20, emptyBackground: true },
       290,
     )
-    const bare = computeLogoMetrics(
-      { url: 'x', width: 60, height: 60 },
-      290,
-    )
+    const bare = computeLogoMetrics({ url: 'x', width: 60, height: 60 }, 290)
 
     const paddedRange = logoKnockoutRange(padded, 10, 4, 21)
     const bareRange = logoKnockoutRange(bare, 10, 4, 21)
@@ -111,9 +108,9 @@ describe('resolveLogoSource', () => {
   })
 
   test('throws for a non-data-URL string (no implicit network fetch)', () => {
-    expect(() => resolveLogoSource({ url: 'https://example.com/logo.png' })).toThrow(
-      /data: URL/,
-    )
+    expect(() =>
+      resolveLogoSource({ url: 'https://example.com/logo.png' }),
+    ).toThrow(/data: URL/)
   })
 
   test('returns undefined dimensions for formats whose headers are not parsed', () => {

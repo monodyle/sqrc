@@ -76,10 +76,15 @@ function sniffContentType(bytes: Uint8Array): string {
   return 'application/octet-stream'
 }
 
-function readPngDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+function readPngDimensions(
+  bytes: Uint8Array,
+): { width: number; height: number } | null {
   // PNG IHDR sits at a fixed offset: bytes 16..23 hold width/height big-endian.
   const isPng =
-    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
   if (!isPng || bytes.length < 24) return null
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   return { width: view.getUint32(16), height: view.getUint32(20) }
@@ -89,10 +94,19 @@ function svgDimensions(text: string): { width: number; height: number } {
   const widthAttr = text.match(/<svg[^>]*\swidth=["'](\d+(?:\.\d+)?)/i)
   const heightAttr = text.match(/<svg[^>]*\sheight=["'](\d+(?:\.\d+)?)/i)
   if (widthAttr && heightAttr) {
-    return { width: Number.parseFloat(widthAttr[1]), height: Number.parseFloat(heightAttr[1]) }
+    return {
+      width: Number.parseFloat(widthAttr[1]),
+      height: Number.parseFloat(heightAttr[1]),
+    }
   }
-  const viewBox = text.match(/<svg[^>]*\sviewBox=["'][\d.\s]+,?([\d.]+)[\s,]+([\d.]+)["']/i)
-  if (viewBox) return { width: Number.parseFloat(viewBox[1]), height: Number.parseFloat(viewBox[2]) }
+  const viewBox = text.match(
+    /<svg[^>]*\sviewBox=["'][\d.\s]+,?([\d.]+)[\s,]+([\d.]+)["']/i,
+  )
+  if (viewBox)
+    return {
+      width: Number.parseFloat(viewBox[1]),
+      height: Number.parseFloat(viewBox[2]),
+    }
   return { width: 100, height: 100 }
 }
 
@@ -146,7 +160,8 @@ export function resolveLogoSource(logo: LogoOptions): ResolvedLogoSource {
   }
 
   const isBase64Source =
-    typeof logo.url === 'string' && /;base64,/.test(logo.url.slice(0, logo.url.indexOf(',') + 1))
+    typeof logo.url === 'string' &&
+    /;base64,/.test(logo.url.slice(0, logo.url.indexOf(',') + 1))
   const dataUrl = isBase64Source
     ? (logo.url as string)
     : `data:${contentType};base64,${bytesToBase64(bytes)}`
