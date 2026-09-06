@@ -66,7 +66,7 @@ const examples = [
   },
 ]
 
-const outDir = join(root, 'test')
+const outDir = join(root, 'examples')
 mkdirSync(outDir, { recursive: true })
 
 for (const { file, value, ecc, options } of examples) {
@@ -76,5 +76,5 @@ for (const { file, value, ecc, options } of examples) {
   )
   const png = new Resvg(svg, { background: '#ffffff' }).render().asPng()
   writeFileSync(join(outDir, file), png)
-  console.log(`wrote test/${file}`)
+  console.log(`wrote examples/${file}`)
 }
