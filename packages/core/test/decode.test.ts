@@ -1,26 +1,6 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas'
-import { Resvg } from '@resvg/resvg-js'
-import jsQR from 'jsqr'
 import { describe, expect, test } from 'vitest'
 import { QRCode } from '../src'
-
-function decode(svg: string) {
-  const rendered = new Resvg(svg, { background: 'white' }).render()
-  return jsQR(
-    new Uint8ClampedArray(rendered.pixels),
-    rendered.width,
-    rendered.height,
-  )
-}
-
-async function decodePng(png: Buffer, size: number) {
-  const image = await loadImage(png)
-  const canvas = createCanvas(size, size)
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(image, 0, 0)
-  const { data } = ctx.getImageData(0, 0, size, size)
-  return jsQR(data, size, size)
-}
+import { decodePng, decodeSvg } from './decode'
 
 describe('QRCode.toSvg decode', () => {
   test.each([
@@ -32,18 +12,20 @@ describe('QRCode.toSvg decode', () => {
     'decodes back to the input for %s (ECC %s)',
     async (value, errorCorrectionLevel) => {
       const svg = await new QRCode(value, { errorCorrectionLevel }).toSvg(512)
-      expect(decode(svg)?.data).toBe(value)
+      expect(await decodeSvg(svg)).toBe(value)
     },
   )
 
   test('defaults to ECC M when only version is given', async () => {
     const svg = await new QRCode('sqrc', { version: 5 }).toSvg(512)
-    expect(decode(svg)?.data).toBe('sqrc')
+    expect(await decodeSvg(svg)).toBe('sqrc')
   })
 
   test('still decodes at a small render size with the quiet zone in place', async () => {
-    const svg = await new QRCode('sqrc', { errorCorrectionLevel: 'L' }).toSvg(128)
-    expect(decode(svg)?.data).toBe('sqrc')
+    const svg = await new QRCode('sqrc', { errorCorrectionLevel: 'L' }).toSvg(
+      128,
+    )
+    expect(await decodeSvg(svg)).toBe('sqrc')
   })
 
   test.each([['square'], ['circle'], ['rounded'], ['diamond']] as const)(
@@ -53,7 +35,7 @@ describe('QRCode.toSvg decode', () => {
         errorCorrectionLevel: 'M',
       }).toSvg(512, { shape })
 
-      expect(decode(svg)?.data).toBe('https://github.com/monodyle/sqrc')
+      expect(await decodeSvg(svg)).toBe('https://github.com/monodyle/sqrc')
     },
   )
 })
@@ -68,7 +50,7 @@ describe('QRCode.toPng decode', () => {
     'decodes back to the input for %s (ECC %s)',
     async (value, errorCorrectionLevel) => {
       const png = await new QRCode(value, { errorCorrectionLevel }).toPng(512)
-      expect((await decodePng(png, 512))?.data).toBe(value)
+      expect(await decodePng(png, 512)).toBe(value)
     },
   )
 
@@ -80,7 +62,7 @@ describe('QRCode.toPng decode', () => {
       })
       const png = await qr.toPng(512, { shape })
 
-      expect((await decodePng(png, 512))?.data).toBe(
+      expect(await decodePng(png, 512)).toBe(
         'https://github.com/monodyle/sqrc',
       )
     },
@@ -94,7 +76,7 @@ describe('QRCode.toPng decode', () => {
       })
       const png = await qr.toPng(512, { eyePatternShape })
 
-      expect((await decodePng(png, 512))?.data).toBe(
+      expect(await decodePng(png, 512)).toBe(
         'https://github.com/monodyle/sqrc',
       )
     },
@@ -107,7 +89,7 @@ describe('QRCode.toSvg color and gradient decode', () => {
       errorCorrectionLevel: 'M',
     }).toSvg(512, { foreground: '#1a1a2e', background: '#f4f4f4' })
 
-    expect(decode(svg)?.data).toBe('sqrc colors')
+    expect(await decodeSvg(svg)).toBe('sqrc colors')
   })
 
   test('linear gradient foreground decodes and keeps the eyes visible', async () => {
@@ -122,7 +104,7 @@ describe('QRCode.toSvg color and gradient decode', () => {
       },
     })
 
-    expect(decode(svg)?.data).toBe('sqrc gradient')
+    expect(await decodeSvg(svg)).toBe('sqrc gradient')
   })
 
   test('radial gradient foreground decodes', async () => {
@@ -132,7 +114,7 @@ describe('QRCode.toSvg color and gradient decode', () => {
       foreground: { from: '#111111', to: '#000000', type: 'radial' },
     })
 
-    expect(decode(svg)?.data).toBe('sqrc radial')
+    expect(await decodeSvg(svg)).toBe('sqrc radial')
   })
 
   test('eyeColor override decodes independently of a gradient body', async () => {
@@ -143,7 +125,7 @@ describe('QRCode.toSvg color and gradient decode', () => {
       eyeColor: '#00274d',
     })
 
-    expect(decode(svg)?.data).toBe('sqrc eyes')
+    expect(await decodeSvg(svg)).toBe('sqrc eyes')
   })
 
   test('eyeColor array applies a distinct color per eye and still decodes', async () => {
@@ -151,7 +133,7 @@ describe('QRCode.toSvg color and gradient decode', () => {
       errorCorrectionLevel: 'H',
     }).toSvg(512, { eyeColor: ['#7f0000', '#004d00', '#00004d'] })
 
-    expect(decode(svg)?.data).toBe('sqrc eye array')
+    expect(await decodeSvg(svg)).toBe('sqrc eye array')
   })
 })
 
@@ -161,7 +143,7 @@ describe('QRCode.toPng color and gradient decode', () => {
       errorCorrectionLevel: 'M',
     }).toPng(512, { foreground: { from: '#0f0f2d', to: '#00040a' } })
 
-    expect((await decodePng(png, 512))?.data).toBe('sqrc png gradient')
+    expect(await decodePng(png, 512)).toBe('sqrc png gradient')
   })
 
   test('eyeColor override decodes the same as the SVG path', async () => {
@@ -169,6 +151,6 @@ describe('QRCode.toPng color and gradient decode', () => {
       errorCorrectionLevel: 'H',
     }).toPng(512, { eyeColor: '#7f0000' })
 
-    expect((await decodePng(png, 512))?.data).toBe('sqrc png eyes')
+    expect(await decodePng(png, 512)).toBe('sqrc png eyes')
   })
 })
