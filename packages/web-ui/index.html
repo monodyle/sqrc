@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sqrc studio · styled QR codes</title>
+    <meta
+      name="description"
+      content="Design styled QR codes live: module shapes, gradients, custom eyes and center logos. Powered by sqrc."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#111111" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111111'/%3E%3Cg fill='%23f4f4f4'%3E%3Crect x='6' y='6' width='8' height='8'/%3E%3Crect x='18' y='6' width='8' height='8'/%3E%3Crect x='6' y='18' width='8' height='8'/%3E%3C/g%3E%3Crect x='18' y='18' width='8' height='8' fill='%23e5484d'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel" id="panel" aria-label="Settings"></aside>
+
+      <main class="stage" aria-label="Preview">
+        <div class="stage-bar">
+          <span class="decode-badge" id="decode-badge" data-state="idle"
+            >idle</span
+          >
+          <dl class="stage-stats" id="stage-stats">
+            <div>
+              <dt>px</dt>
+              <dd id="stat-px">—</dd>
+            </div>
+            <div>
+              <dt>svg</dt>
+              <dd id="stat-bytes">—</dd>
+            </div>
+            <div>
+              <dt>render</dt>
+              <dd id="stat-ms">—</dd>
+            </div>
+            <div>
+              <dt>ecc</dt>
+              <dd id="stat-ecc">—</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="stage-body">
+          <div class="stage-frame" id="stage-frame">
+            <div class="qr-layer" id="qr-a" data-active="true"></div>
+            <div class="qr-layer" id="qr-b"></div>
+            <div class="stage-empty" id="stage-empty" hidden>
+              <p>Type a value to encode</p>
+            </div>
+          </div>
+        </div>
+
+        <details class="code" id="code">
+          <summary class="code-head">
+            <span>Code</span>
+            <button type="button" class="btn btn-small" id="btn-copy-code">
+              Copy
+            </button>
+          </summary>
+          <pre class="code-body"><code id="code-out"></code></pre>
+        </details>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
